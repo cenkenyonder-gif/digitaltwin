@@ -33,14 +33,14 @@ jobs:
       # 3️⃣ Authenticate Docker to Artifact Registry
       # -------------------------------------------------
       - name: Authenticate Docker to Artifact Registry
-        run: gcloud auth configure-docker us-central1-docker.pkg.dev
+        run: gcloud auth configure-docker europe-west4-docker.pkg.dev
 
       # -------------------------------------------------
       # 4️⃣ Build Docker image
       # -------------------------------------------------
       - name: Build Docker image
         run: |
-          IMAGE=us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/digital-twin/api:$(date +%s)
+          IMAGE=europe-west4-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/digital-twin/api:$(date +%s)
           docker build -t $IMAGE .
           docker push $IMAGE
           echo "IMAGE=$IMAGE" >> $GITHUB_ENV
@@ -52,7 +52,7 @@ jobs:
         run: |
           gcloud run deploy digital-twin-api \
             --image $IMAGE \
-            --region us-central1 \
+            --region europe-west4 \
             --platform managed \
             --allow-unauthenticated \
             --service-account 1077222074735-compute@developer.gserviceaccount.com

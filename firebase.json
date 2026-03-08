@@ -1,13 +1,17 @@
 {
   "hosting": {
     "public": "public",
-    "ignore": ["firebase.json","**/.*","**/node_modules/**"],
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
     "rewrites": [
       {
         "source": "/api/**",
         "run": {
           "serviceId": "digital-twin-api",
-          "region": "us-central1"
+          "region": "europe-west4"
         }
       },
       {
