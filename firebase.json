@@ -10,7 +10,7 @@
       {
         "source": "/api/**",
         "run": {
-          "serviceId": "digital-twin-api",
+          "serviceId": "digitaltwin-api",
           "region": "europe-west4"
         }
       },
