@@ -8,10 +8,9 @@ app.use(express.json());
 // Initialize the Google Gen AI SDK for Vertex AI
 // This uses Application Default Credentials dynamically on Cloud Run
 const ai = new GoogleGenAI({
-  vertexai: {
-    project: 'gen-lang-client-0993371584',
-    location: 'europe-west4'
-  }
+  vertexai: true,
+  project: 'gen-lang-client-0993371584',
+  location: 'europe-west4'
 });
 
 // ---- Drive auth (compute service account) ----
