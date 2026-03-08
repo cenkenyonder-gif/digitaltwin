@@ -3,30 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <title>Digital Twin</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    body {font-family:'Inter',sans-serif;background:#111;color:#eee;margin:0;display:flex;flex-direction:column;align-items:center;padding:2rem;}
-    input,button{padding:.5rem;margin:.5rem;border-radius:4px;border:none;}
-    button{background:#4a90e2;color:#fff;cursor:pointer;}
-    button:hover{background:#357ab8;}
-  </style>
 </head>
 <body>
   <h1>Digital Twin Chat</h1>
   <input id="msg" placeholder="Type a message…" />
   <button onclick="send()">Send</button>
   <pre id="out"></pre>
-
   <script>
     async function send(){
       const txt=document.getElementById('msg').value;
-      const res=await fetch('/api/chat',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({message:txt})
-      });
-      const data=await res.json();
-      document.getElementById('out').textContent=JSON.stringify(data,null,2);
+      const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:txt})});
+      document.getElementById('out').textContent=JSON.stringify(await res.json(),null,2);
     }
   </script>
 </body>
