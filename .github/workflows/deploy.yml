@@ -13,6 +13,12 @@ jobs:
 
     steps:
       # -------------------------------------------------
+      # 0️⃣ Checkout the repository
+      # -------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -------------------------------------------------
       # 1️⃣ Authenticate to Google Cloud (creates ADC)
       # -------------------------------------------------
       - name: Authenticate to Google Cloud
@@ -40,7 +46,7 @@ jobs:
       # -------------------------------------------------
       - name: Build Docker image
         run: |
-          IMAGE=europe-west4-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/digital-twin/api:$(date +%s)
+          IMAGE=europe-west4-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/digitaltwin/api:$(date +%s)
           docker build -t $IMAGE .
           docker push $IMAGE
           echo "IMAGE=$IMAGE" >> $GITHUB_ENV
