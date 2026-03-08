@@ -61,6 +61,7 @@ jobs:
             --region europe-west4 \
             --platform managed \
             --allow-unauthenticated \
+            --set-env-vars GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
             --service-account 1077222074735-compute@developer.gserviceaccount.com
 
       # -------------------------------------------------

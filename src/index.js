@@ -5,12 +5,9 @@ const { GoogleGenAI } = require('@google/genai');
 const app = express();
 app.use(express.json());
 
-// Initialize the Google Gen AI SDK for Vertex AI
-// This uses Application Default Credentials dynamically on Cloud Run
+// Use the standard Gemini Developer API (bypassing Vertex AI complexities)
 const ai = new GoogleGenAI({
-  vertexai: true,
-  project: 'gen-lang-client-0993371584',
-  location: 'europe-west4'
+  apiKey: process.env.GEMINI_API_KEY
 });
 
 // ---- Drive auth (compute service account) ----
