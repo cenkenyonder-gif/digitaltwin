@@ -20,8 +20,8 @@ app.use(express.static(path.join(__dirname, '../public')));
 // ---------------------------------------------------------
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`===============================================`);
-  console.log(`✅ DIGITAL TWIN BOOTED ON PORT ${PORT}`);
-  console.log(`Node: ${process.version}`);
+  console.log(`✅ DIGITAL TWIN ONLINE ON PORT ${PORT}`);
+  console.log(`SDK Version: @google/genai`);
   console.log(`===============================================`);
 });
 
@@ -37,15 +37,15 @@ let driveError = null;
 let genAI = null;
 
 async function init() {
-  console.log('📦 Initializing AI & Drive...');
+  console.log('🔄 Syncing Cloud Services...');
   
-  // 1. Initialize Gemini SDK
+  // 1. Initialize Gemini SDK (New Pattern for v1.44+)
   try {
     const apiKey = process.env.GEMINI_API_KEY;
     if (apiKey) {
-      // Using the GoogleGenAI class instead of createClient
-      genAI = new GoogleGenAI(apiKey);
-      console.log('✨ Gemini SDK Initialized');
+      // The @google/genai SDK requires an options object
+      genAI = new GoogleGenAI({ apiKey });
+      console.log('✨ Gemini SDK Client Ready');
     } else {
       console.error('⚠️ GEMINI_API_KEY is missing');
     }
@@ -91,7 +91,7 @@ async function syncWithDrive() {
     }
   } catch (err) {
     driveError = err.message;
-    console.error('❌ Drive Error:', err.message);
+    console.error('❌ Drive Sync Error:', err.message);
   }
 }
 
@@ -105,30 +105,30 @@ init().catch(console.error);
 app.get('/api/status', (req, res) => {
   res.json({
     active: true,
-    drive: { connected: !driveError, lastSync: lastPromptUpdate },
-    ai: { ready: !!genAI }
+    drive_connected: !driveError,
+    ai_ready: !!genAI,
+    last_sync: lastPromptUpdate
   });
 });
 
 app.post('/api/chat', async (req, res) => {
   try {
     const { message } = req.body;
-    if (!message) return res.status(400).json({ error: 'Empty message' });
+    if (!message) return res.status(400).json({ error: 'Message required' });
     if (!genAI) return res.status(503).json({ error: 'AI Client warming up' });
 
-    // Using the getGenerativeModel pattern
-    const model = genAI.getGenerativeModel({
+    // The NEW @google/genai SDK use the 'models.generateContent' pattern
+    const result = await genAI.models.generateContent({
       model: "gemini-2.0-flash",
+      contents: [{ role: 'user', parts: [{ text: message }] }],
       systemInstruction: systemPrompt
     });
 
-    const result = await model.generateContent(message);
-    const response = await result.response;
-    res.json({ reply: response.text() });
+    res.json({ reply: result.response.text() });
 
   } catch (err) {
-    console.error('API Error:', err);
-    res.status(500).json({ error: { message: err.message } });
+    console.error('Chat API Error:', err);
+    res.status(500).json({ error: { message: err.message, status: err.status } });
   }
 });
 
