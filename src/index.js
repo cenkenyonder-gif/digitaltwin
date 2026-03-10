@@ -31,22 +31,35 @@ async function loadSystemPrompt() {
   try {
     const res = await drive.files.list({
       q: "name='system_instruction.txt' and trashed=false",
-      fields: 'files(id, name)',
+      fields: 'files(id, name, mimeType)',
       spaces: 'drive'
     });
 
     if (res.data.files && res.data.files.length > 0) {
-      const fileId = res.data.files[0].id;
-      // Fetching media content directly
-      const file = await drive.files.get({ fileId, alt: 'media' });
+      const file = res.data.files[0];
+      const fileId = file.id;
+      const mimeType = file.mimeType;
       
-      // Handle both stream and direct data (depends on environment)
       let data = '';
-      if (typeof file.data === 'string') {
-        data = file.data;
+      
+      // If it's a Google Doc, we must use 'export'
+      if (mimeType === 'application/vnd.google-apps.document') {
+        const exportRes = await drive.files.export({
+          fileId: fileId,
+          mimeType: 'text/plain'
+        });
+        data = exportRes.data;
       } else {
-        // Fallback for stream
-        for await (const chunk of file.data) data += chunk;
+        // Otherwise use 'get' with alt=media for binary/plain files
+        const getRes = await drive.files.get({ fileId, alt: 'media' });
+        
+        // Handle both stream and direct data
+        if (typeof getRes.data === 'string') {
+          data = getRes.data;
+        } else {
+          // Stream handling
+          for await (const chunk of getRes.data) data += chunk;
+        }
       }
       
       systemPrompt = data.trim();
@@ -59,7 +72,7 @@ async function loadSystemPrompt() {
     }
   } catch (err) {
     driveError = err.message;
-    console.error('❌ Drive Auth Error:', err.message);
+    console.error('❌ Drive Error:', err.message);
   }
 }
 
