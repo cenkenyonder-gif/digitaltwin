@@ -39,10 +39,11 @@ let genAI = null;
 async function init() {
   console.log('🔄 Initializing API Clients...');
   
-  // 1. Initialize Gemini SDK (Targeting 2.5-Flash)
+  // 1. Initialize Gemini SDK
   try {
     const apiKey = process.env.GEMINI_API_KEY;
     if (apiKey) {
+      // In @google/genai v1.44+, GoogleGenAI is the standard class
       genAI = new GoogleGenAI({ apiKey });
       console.log('✨ Gemini SDK Client Ready');
     } else {
@@ -82,13 +83,15 @@ async function syncWithDrive() {
         data = typeof getRes.data === 'string' ? getRes.data : '';
       }
       
-      systemPrompt = data.trim() || systemPrompt;
-      lastPromptUpdate = new Date().toISOString();
-      driveError = null;
-      console.log('✅ Synchronization Successful');
+      if (data.trim()) {
+        systemPrompt = data.trim();
+        lastPromptUpdate = new Date().toISOString();
+        driveError = null;
+        console.log('✅ Synchronized with Google Drive');
+      }
     } else {
       driveError = "File 'system_instruction.txt' not found";
-      console.warn('⚠️ GDrive file missing, using defaults');
+      console.warn('⚠️ File not found in Drive, using default prompt.');
     }
   } catch (err) {
     driveError = err.message;
@@ -124,18 +127,38 @@ app.post('/api/chat', async (req, res) => {
     if (!message) return res.status(400).json({ error: 'Message required' });
     if (!genAI) return res.status(503).json({ error: 'AI Client warming up' });
 
-    // Re-implemented per user request: Gemini 2.5-Flash
+    console.log('💬 Querying Gemini 2.5 Flash...');
+    
+    // In @google/genai (v1.44), the generateContent method returns the response directly
     const result = await genAI.models.generateContent({
       model: "gemini-2.5-flash",
       contents: [{ role: 'user', parts: [{ text: message }] }],
       systemInstruction: systemPrompt
     });
 
-    res.json({ reply: result.response.text() });
+    // Logging the result structure to debug Cloud Run logs if it fails again
+    console.log('✅ Response received');
+
+    // Robust extraction of text response
+    let replyText = '';
+    
+    // Check if it's the new SDK consolidated response
+    if (result && typeof result.text === 'function') {
+      replyText = result.text();
+    } else if (result && result.response && typeof result.response.text === 'function') {
+      replyText = result.response.text();
+    } else if (result && result.candidates && result.candidates[0]?.content?.parts[0]?.text) {
+      replyText = result.candidates[0].content.parts[0].text;
+    } else {
+      console.error('❌ Unexpected response structure:', JSON.stringify(result));
+      throw new Error('Could not parse response from Gemini');
+    }
+
+    res.json({ reply: replyText });
 
   } catch (err) {
     console.error('Chat API Error:', err);
-    res.status(500).json({ error: { message: err.message, status: err.status } });
+    res.status(500).json({ error: { message: err.message } });
   }
 });
 
