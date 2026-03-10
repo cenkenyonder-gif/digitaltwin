@@ -5,7 +5,7 @@ import { google } from 'googleapis';
 import { GoogleGenAI } from '@google/genai';
 
 // ---------------------------------------------------------
-// 🏗️ BOOT CONFIG
+// 🏗️ INITIAL SETUP
 // ---------------------------------------------------------
 const PORT = process.env.PORT || 8080;
 const __filename = fileURLToPath(import.meta.url);
@@ -21,39 +21,32 @@ app.use(express.static(path.join(__dirname, '../public')));
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`===============================================`);
   console.log(`✅ DIGITAL TWIN ONLINE ON PORT ${PORT}`);
-  console.log(`SDK Version: @google/genai`);
   console.log(`===============================================`);
 });
 
-// Health check
 app.get('/api/health', (req, res) => res.status(200).send('OK'));
 
 // ---------------------------------------------------------
-// 🛡️ STATE & INITIALIZATION
+// 🛡️ STATE & GOOGLE SERVICES
 // ---------------------------------------------------------
 let systemPrompt = "You are a helpful AI assistant.";
 let lastPromptUpdate = null;
-let driveError = null;
+let driveError = "Initializing...";
 let genAI = null;
 
 async function init() {
-  console.log('🔄 Syncing Cloud Services...');
-  
-  // 1. Initialize Gemini SDK (New Pattern for v1.44+)
+  // 1. Initialize Gemini SDK (Pattern for v1.44+)
   try {
     const apiKey = process.env.GEMINI_API_KEY;
     if (apiKey) {
-      // The @google/genai SDK requires an options object
       genAI = new GoogleGenAI({ apiKey });
-      console.log('✨ Gemini SDK Client Ready');
-    } else {
-      console.error('⚠️ GEMINI_API_KEY is missing');
+      console.log('✨ Gemini SDK Ready');
     }
   } catch (e) {
     console.error('❌ SDK Init Failed:', e.message);
   }
 
-  // 2. Drive Sync
+  // 2. Initial Drive Sync
   syncWithDrive();
   setInterval(syncWithDrive, 5 * 60 * 1000);
 }
@@ -85,9 +78,10 @@ async function syncWithDrive() {
       systemPrompt = data.trim() || systemPrompt;
       lastPromptUpdate = new Date().toISOString();
       driveError = null;
-      console.log('✅ GDrive Sync OK');
+      console.log('✅ Synchronized with Google Drive');
     } else {
       driveError = "File not found";
+      console.warn('⚠️ File missing, using defaults');
     }
   } catch (err) {
     driveError = err.message;
@@ -95,19 +89,22 @@ async function syncWithDrive() {
   }
 }
 
-// Background init
+// Background startup
 init().catch(console.error);
 
 // ---------------------------------------------------------
-// 🛤️ ROUTES
+// 🛤️ ROUTES & CHAT
 // ---------------------------------------------------------
 
 app.get('/api/status', (req, res) => {
   res.json({
-    active: true,
-    drive_connected: !driveError,
-    ai_ready: !!genAI,
-    last_sync: lastPromptUpdate
+    online: true,
+    // Unified with frontend expectation
+    drive: {
+      connected: !driveError,
+      lastUpdate: lastPromptUpdate,
+      error: driveError
+    }
   });
 });
 
@@ -117,18 +114,18 @@ app.post('/api/chat', async (req, res) => {
     if (!message) return res.status(400).json({ error: 'Message required' });
     if (!genAI) return res.status(503).json({ error: 'AI Client warming up' });
 
-    // The NEW @google/genai SDK use the 'models.generateContent' pattern
+    // Official @google/genai v1.44 Pattern:
     const result = await genAI.models.generateContent({
       model: "gemini-2.0-flash",
-      contents: [{ role: 'user', parts: [{ text: message }] }],
+      contents: [{ role: "user", parts: [{ text: message }] }],
       systemInstruction: systemPrompt
     });
 
     res.json({ reply: result.response.text() });
 
   } catch (err) {
-    console.error('Chat API Error:', err);
-    res.status(500).json({ error: { message: err.message, status: err.status } });
+    console.error('Chat Error:', err);
+    res.status(500).json({ error: { message: err.message } });
   }
 });
 
