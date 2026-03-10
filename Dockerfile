@@ -1,18 +1,17 @@
-FROM node:20-alpine AS builder
+FROM node:20-slim
+
 WORKDIR /app
+
+# Install dependencies
 COPY package*.json ./
-RUN npm install
+RUN npm install --production
+
+# Copy application files
 COPY . .
 
-# Multi-stage build for a smaller, faster-starting image
-FROM node:20-alpine
-WORKDIR /app
-# Only copy necessary files from the builder
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/src ./src
-COPY --from=builder /app/public ./public
-
+# Ensure the app listens on the correct interface and port
+ENV PORT=8080
 EXPOSE 8080
-CMD ["node", "src/index.js"]
 
+# Use npm start to follow the defined start script
+CMD ["npm", "start"]
