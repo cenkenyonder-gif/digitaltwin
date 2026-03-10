@@ -9,7 +9,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write   # needed for Google authentication
+      id-token: write
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       # -------------------------------------------------
@@ -19,16 +21,16 @@ jobs:
         uses: actions/checkout@v4
 
       # -------------------------------------------------
-      # 1️⃣ Authenticate to Google Cloud (creates ADC)
+      # 1️⃣ Authenticate to Google Cloud
       # -------------------------------------------------
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}   # JSON key of a service account
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
       # -------------------------------------------------
-      # 2️⃣ Install the gcloud SDK (no deprecated flag)
+      # 2️⃣ Install the gcloud SDK
       # -------------------------------------------------
       - name: Install Cloud SDK
         uses: google-github-actions/setup-gcloud@v2

@@ -1,17 +1,19 @@
-FROM node:20-slim
+FROM node:24
 
 WORKDIR /app
 
-# Install dependencies
+# Install dependencies (on the target architecture)
 COPY package*.json ./
-RUN npm install --production
+RUN npm install
 
 # Copy application files
 COPY . .
 
-# Ensure the app listens on the correct interface and port
+# Set clear environment variables
+ENV NODE_ENV=production
 ENV PORT=8080
+
 EXPOSE 8080
 
-# Use npm start to follow the defined start script
-CMD ["npm", "start"]
+# Run Node directly for maximum visibility
+CMD ["node", "src/index.js"]
