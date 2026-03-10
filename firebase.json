@@ -8,15 +8,11 @@
     ],
     "rewrites": [
       {
-        "source": "/api/**",
+        "source": "**",
         "run": {
           "serviceId": "digitaltwin-api",
           "region": "europe-west4"
         }
-      },
-      {
-        "source": "**",
-        "destination": "/index.html"
       }
     ]
   }

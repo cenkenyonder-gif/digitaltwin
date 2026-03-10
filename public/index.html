@@ -1,24 +1,88 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8">
-  <title>Digital Twin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Digital Twin | Cloud Edition</title>
+  <style>
+    body { font-family: -apple-system, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; line-height: 1.6; background: #f4f7f9; }
+    .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+    h1 { color: #1a73e8; margin-top: 0; }
+    .status { font-size: 0.8em; color: #666; margin-bottom: 20px; display: flex; gap: 10px; }
+    .indicator { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ccc; }
+    .ready { background: #34a853; }
+    .error { background: #ea4335; }
+    input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; margin-bottom: 10px; }
+    button { background: #1a73e8; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+    button:hover { background: #1557b0; }
+    pre { background: #f8f9fa; padding: 15px; border-radius: 8px; white-space: pre-wrap; word-wrap: break-word; min-height: 50px; border-left: 4px solid #1a73e8; }
+    .refresh-link { font-size: 0.8em; color: #1a73e8; cursor: pointer; text-decoration: underline; }
+  </style>
 </head>
-
 <body>
-  <h1>Digital Twin Chat</h1>
-  <input id="msg" placeholder="Type a message…" />
-  <button onclick="send()">Send</button>
-  <pre id="out"></pre>
+  <div class="card">
+    <h1>Digital Twin</h1>
+    <div class="status">
+      <span>Drive: <span id="drive-dot" class="indicator"></span> <span id="drive-status">Checking...</span></span>
+      <span>|</span>
+      <span class="refresh-link" onclick="checkStatus()">Refresh Status</span>
+    </div>
+
+    <input id="msg" placeholder="Tell me something..." onkeypress="if(event.key==='Enter') send()" />
+    <button id="send-btn" onclick="send()">Send Message</button>
+    
+    <h3>Response:</h3>
+    <pre id="out">Connect with your Twin above...</pre>
+  </div>
+
   <script>
-    async function send() {
-      const txt = document.getElementById('msg').value;
-      const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: txt }) });
-      const data = await res.json();
-      document.getElementById('out').textContent = data.reply || data.error || JSON.stringify(data);
+    async function checkStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        document.getElementById('drive-dot').className = 'indicator ' + (data.drive.connected ? 'ready' : 'error');
+        document.getElementById('drive-status').textContent = data.drive.connected ? 'Connected' : 'Error';
+        if (data.drive.error) console.error('Drive Error:', data.drive.error);
+      } catch (e) {
+        document.getElementById('drive-status').textContent = 'Offline';
+      }
     }
+
+    async function send() {
+      const out = document.getElementById('out');
+      const btn = document.getElementById('send-btn');
+      const input = document.getElementById('msg');
+      const msg = input.value.trim();
+      
+      if (!msg) return;
+
+      out.textContent = 'Thinking...';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: msg })
+        });
+        const data = await res.json();
+
+        if (data.reply) {
+          out.textContent = data.reply;
+          input.value = '';
+        } else {
+          out.textContent = 'System Error: ' + (data.error?.message || JSON.stringify(data.error));
+        }
+      } catch (err) {
+        out.textContent = 'Network Error: ' + err.message;
+      } finally {
+        btn.disabled = false;
+        input.focus();
+      }
+    }
+
+    // Check status on load
+    checkStatus();
   </script>
 </body>
-
 </html>
