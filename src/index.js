@@ -5,7 +5,7 @@ import { google } from 'googleapis';
 import { GoogleGenAI } from '@google/genai';
 
 // ---------------------------------------------------------
-// 🏗️ INITIAL SETUP
+// 🏗️ BOOT CONFIG
 // ---------------------------------------------------------
 const PORT = process.env.PORT || 8080;
 const __filename = fileURLToPath(import.meta.url);
@@ -21,13 +21,15 @@ app.use(express.static(path.join(__dirname, '../public')));
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`===============================================`);
   console.log(`✅ DIGITAL TWIN ONLINE ON PORT ${PORT}`);
+  console.log(`Model: Gemini 2.5 Flash`);
   console.log(`===============================================`);
 });
 
+// Health check
 app.get('/api/health', (req, res) => res.status(200).send('OK'));
 
 // ---------------------------------------------------------
-// 🛡️ STATE & GOOGLE SERVICES
+// 🛡️ STATE & INITIALIZATION
 // ---------------------------------------------------------
 let systemPrompt = "You are a helpful AI assistant.";
 let lastPromptUpdate = null;
@@ -35,23 +37,28 @@ let driveError = "Initializing...";
 let genAI = null;
 
 async function init() {
-  // 1. Initialize Gemini SDK (Pattern for v1.44+)
+  console.log('🔄 Initializing API Clients...');
+  
+  // 1. Initialize Gemini SDK (Targeting 2.5-Flash)
   try {
     const apiKey = process.env.GEMINI_API_KEY;
     if (apiKey) {
       genAI = new GoogleGenAI({ apiKey });
-      console.log('✨ Gemini SDK Ready');
+      console.log('✨ Gemini SDK Client Ready');
+    } else {
+      console.error('⚠️ GEMINI_API_KEY is missing');
     }
   } catch (e) {
     console.error('❌ SDK Init Failed:', e.message);
   }
 
-  // 2. Initial Drive Sync
+  // 2. Drive Sync Setup
   syncWithDrive();
   setInterval(syncWithDrive, 5 * 60 * 1000);
 }
 
 async function syncWithDrive() {
+  console.log('🔍 Syncing instructions from GDrive...');
   try {
     const auth = new google.auth.GoogleAuth({
       scopes: ['https://www.googleapis.com/auth/drive.readonly']
@@ -78,32 +85,35 @@ async function syncWithDrive() {
       systemPrompt = data.trim() || systemPrompt;
       lastPromptUpdate = new Date().toISOString();
       driveError = null;
-      console.log('✅ Synchronized with Google Drive');
+      console.log('✅ Synchronization Successful');
     } else {
-      driveError = "File not found";
-      console.warn('⚠️ File missing, using defaults');
+      driveError = "File 'system_instruction.txt' not found";
+      console.warn('⚠️ GDrive file missing, using defaults');
     }
   } catch (err) {
     driveError = err.message;
-    console.error('❌ Drive Sync Error:', err.message);
+    console.error('❌ Drive Error:', err.message);
   }
 }
 
-// Background startup
-init().catch(console.error);
+// Start background init
+init().catch(err => console.error('🔥 Init Error:', err));
 
 // ---------------------------------------------------------
-// 🛤️ ROUTES & CHAT
+// 🛤️ ROUTES
 // ---------------------------------------------------------
 
 app.get('/api/status', (req, res) => {
   res.json({
     online: true,
-    // Unified with frontend expectation
     drive: {
       connected: !driveError,
       lastUpdate: lastPromptUpdate,
       error: driveError
+    },
+    gemini: {
+      model: "gemini-2.5-flash",
+      ready: !!genAI
     }
   });
 });
@@ -114,18 +124,18 @@ app.post('/api/chat', async (req, res) => {
     if (!message) return res.status(400).json({ error: 'Message required' });
     if (!genAI) return res.status(503).json({ error: 'AI Client warming up' });
 
-    // Official @google/genai v1.44 Pattern:
+    // Re-implemented per user request: Gemini 2.5-Flash
     const result = await genAI.models.generateContent({
-      model: "gemini-2.0-flash",
-      contents: [{ role: "user", parts: [{ text: message }] }],
+      model: "gemini-2.5-flash",
+      contents: [{ role: 'user', parts: [{ text: message }] }],
       systemInstruction: systemPrompt
     });
 
     res.json({ reply: result.response.text() });
 
   } catch (err) {
-    console.error('Chat Error:', err);
-    res.status(500).json({ error: { message: err.message } });
+    console.error('Chat API Error:', err);
+    res.status(500).json({ error: { message: err.message, status: err.status } });
   }
 });
 
