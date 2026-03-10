@@ -1,21 +1,24 @@
-const express = require('express');
-const { google } = require('googleapis');
-const { createClient } = require('@google/genai');
-const path = require('path');
+import express from 'express';
+import { google } from 'googleapis';
+import { createClient } from '@google/genai';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(express.json());
 
-// Serve static files from the 'public' directory (Cloud-Native Frontend)
+// Serve static files from the 'public' directory
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Use the modern "Gen AI" SDK (introduced with Gemini 2.0)
+// Use the modern "Gen AI" SDK
 const genAI = createClient({ 
   apiKey: process.env.GEMINI_API_KEY 
 });
 
 // Use Application Default Credentials (ADC) for Google Drive
-// On Cloud Run, this uses the Service Account assigned to the service
 const auth = new google.auth.GoogleAuth({
   scopes: ['https://www.googleapis.com/auth/drive.readonly']
 });
@@ -27,7 +30,6 @@ let driveError = null;
 
 /**
  * Loads the system instruction from Google Drive.
- * This allows "All files on Cloud/GDrive" control.
  */
 async function loadSystemPrompt() {
   try {
@@ -44,7 +46,6 @@ async function loadSystemPrompt() {
       
       let data = '';
       
-      // If it's a Google Doc, we must use 'export'
       if (mimeType === 'application/vnd.google-apps.document') {
         const exportRes = await drive.files.export({
           fileId: fileId,
@@ -52,10 +53,7 @@ async function loadSystemPrompt() {
         });
         data = exportRes.data;
       } else {
-        // Otherwise use 'get' with alt=media for binary/plain files
         const getRes = await drive.files.get({ fileId, alt: 'media' });
-        
-        // Handle both stream and direct data
         if (typeof getRes.data === 'string') {
           data = getRes.data;
         } else {
@@ -67,7 +65,7 @@ async function loadSystemPrompt() {
       systemPrompt = data.trim();
       lastPromptUpdate = new Date().toISOString();
       driveError = null;
-      console.log('✅ System prompt updated from GDrive');
+      console.log('✅ System prompt loaded from GDrive');
     } else {
       driveError = "File 'system_instruction.txt' not found in Drive";
       console.warn('⚠️ system_instruction.txt not found. Using default.');
@@ -78,18 +76,16 @@ async function loadSystemPrompt() {
   }
 }
 
-// Initial load on startup
-loadSystemPrompt();
+// Initial load on startup (don't await so we can start listening immediately)
+loadSystemPrompt().catch(err => console.error('Startup Drive Error:', err));
 
-// Refresh the prompt every 5 minutes automatically
+// Refresh the prompt every 5 minutes
 setInterval(loadSystemPrompt, 5 * 60 * 1000);
 
 // --- API Endpoints ---
 
-// Health check for Cloud Run
 app.get('/api/health', (req, res) => res.send('OK'));
 
-// Status check to debug Drive/Gemini in the cloud
 app.get('/api/status', (req, res) => {
   res.json({
     status: 'online',
@@ -99,32 +95,26 @@ app.get('/api/status', (req, res) => {
       lastUpdate: lastPromptUpdate
     },
     gemini: {
-      model: "gemini-2.0-flash", // Using stable for reliability
+      model: "gemini-2.0-flash",
       configured: !!process.env.GEMINI_API_KEY
     },
     prompt_preview: systemPrompt.substring(0, 100) + '...'
   });
 });
 
-// Manual refresh trigger
 app.post('/api/refresh', async (req, res) => {
   await loadSystemPrompt();
   res.json({ success: true, updated: lastPromptUpdate });
 });
 
-// Chat endpoint
 app.post('/api/chat', async (req, res) => {
   try {
     const { message } = req.body;
     if (!message) return res.status(400).json({ error: 'Message is required' });
 
-    // In 2026, 2.0-flash is the highly stable choice, but we can use 2.5-flash if preferred.
-    // I'll use the precise model name format.
-    const modelName = "gemini-2.0-flash"; 
-    
     // Modern @google/genai SDK pattern
     const result = await genAI.models.generateContent({
-      model: modelName,
+      model: "gemini-2.0-flash",
       contents: [{ role: 'user', parts: [{ text: message }] }],
       systemInstruction: systemPrompt
     });
@@ -142,12 +132,11 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// Catch-all to serve index.html for any other route (SPA style)
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-  console.log(`🚀 Digital Twin Cloud-Service running on port ${PORT}`);
+const PORT = parseInt(process.env.PORT) || 8080;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Digital Twin Cloud-Service (ESM) listening on port ${PORT}`);
 });
