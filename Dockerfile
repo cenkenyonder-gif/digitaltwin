@@ -1,19 +1,20 @@
-FROM node:24
+FROM node:20-slim
 
 WORKDIR /app
 
-# Install dependencies (on the target architecture)
-COPY package*.json ./
-RUN npm install
-
-# Copy application files
-COPY . .
-
-# Set clear environment variables
+# Ensure we use production settings
 ENV NODE_ENV=production
 ENV PORT=8080
 
+# Install dependencies in the Linux environment
+COPY package*.json ./
+RUN npm install --only=production
+
+# Copy application code
+COPY . .
+
+# Expose the standard Cloud Run port
 EXPOSE 8080
 
-# Run Node directly for maximum visibility
+# Start node directly
 CMD ["node", "src/index.js"]
