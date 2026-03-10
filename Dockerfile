@@ -1,4 +1,4 @@
-FROM node:20-slim
+FROM node:20
 
 WORKDIR /app
 
@@ -6,15 +6,15 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=8080
 
-# Install dependencies in the Linux environment
+# Install dependencies (Standard image guarantees system libs)
 COPY package*.json ./
 RUN npm install --only=production
 
-# Copy application code
+# Copy application files
 COPY . .
 
 # Expose the standard Cloud Run port
 EXPOSE 8080
 
-# Start node directly
+# Start server directly
 CMD ["node", "src/index.js"]

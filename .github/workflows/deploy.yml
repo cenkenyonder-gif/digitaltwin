@@ -31,9 +31,8 @@ jobs:
       - name: Authenticate Docker
         run: gcloud auth configure-docker europe-west4-docker.pkg.dev
 
-      - name: Build and Push to Artifact Registry
+      - name: Build and Push
         run: |
-          # Use a deterministic tag for debugging
           TAG=$(date +%s)
           IMAGE=europe-west4-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/digitaltwin/api:$TAG
           docker build -t $IMAGE .
@@ -50,7 +49,9 @@ jobs:
             --service-account 1077222074735-compute@developer.gserviceaccount.com \
             --set-env-vars GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
             --timeout 300 \
-            --port 8080
+            --port 8080 \
+            --memory 1Gi \
+            --cpu 1
 
       - name: Deploy Firebase Hosting
         run: |
