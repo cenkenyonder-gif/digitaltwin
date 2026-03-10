@@ -1,6 +1,6 @@
 const express = require('express');
 const { google } = require('googleapis');
-const { GoogleGenAI } = require('@google/genai');
+const { createClient } = require('@google/genai');
 const path = require('path');
 
 const app = express();
@@ -9,8 +9,10 @@ app.use(express.json());
 // Serve static files from the 'public' directory (Cloud-Native Frontend)
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Use API Key for Gemini (from Cloud Run Env Vars)
-const genAI = new GoogleGenAI(process.env.GEMINI_API_KEY);
+// Use the modern "Gen AI" SDK (introduced with Gemini 2.0)
+const genAI = createClient({ 
+  apiKey: process.env.GEMINI_API_KEY 
+});
 
 // Use Application Default Credentials (ADC) for Google Drive
 // On Cloud Run, this uses the Service Account assigned to the service
@@ -119,14 +121,15 @@ app.post('/api/chat', async (req, res) => {
     // In 2026, 2.0-flash is the highly stable choice, but we can use 2.5-flash if preferred.
     // I'll use the precise model name format.
     const modelName = "gemini-2.0-flash"; 
-    const model = genAI.getGenerativeModel({
+    
+    // Modern @google/genai SDK pattern
+    const result = await genAI.models.generateContent({
       model: modelName,
+      contents: [{ role: 'user', parts: [{ text: message }] }],
       systemInstruction: systemPrompt
     });
 
-    const result = await model.generateContent(message);
-    const response = await result.response;
-    res.json({ reply: response.text() });
+    res.json({ reply: result.response.text() });
 
   } catch (err) {
     console.error('Gemini Error:', err);
