@@ -6,9 +6,7 @@ const app = express();
 app.use(express.json());
 
 // Use the standard Gemini Developer API (bypassing Vertex AI complexities)
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY
-});
+const genAI = new GoogleGenAI(process.env.GEMINI_API_KEY);
 
 // ---- Drive auth (compute service account) ----
 const auth = new google.auth.GoogleAuth({
@@ -41,7 +39,7 @@ async function loadSystemPrompt() {
 }
 loadSystemPrompt();
 
-// ---- Vertex AI chat endpoint ----
+// ---- Chat endpoint ----
 app.post('/api/chat', async (req, res) => {
   try {
     const userMsg = req.body.message || '';
@@ -49,20 +47,21 @@ app.post('/api/chat', async (req, res) => {
       return res.status(400).json({ error: 'Message is required' });
     }
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: userMsg,
-      config: {
-        systemInstruction: systemPrompt || "You are a helpful AI assistant."
-      }
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.0-flash",
+      systemInstruction: systemPrompt || "You are a helpful AI assistant."
     });
 
+    const result = await model.generateContent(userMsg);
+    const response = await result.response;
+    const text = response.text();
+
     res.json({
-      reply: response.text
+      reply: text
     });
   } catch (err) {
-    console.error('Vertex AI Error:', err);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error('Gemini AI Error:', err);
+    res.status(500).json({ error: JSON.parse(JSON.stringify(err)) });
   }
 });
 
