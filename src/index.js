@@ -4,40 +4,49 @@ import { createClient } from '@google/genai';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-// Setup paths for ESM
+// 1. CONSTANTS & PATHS
+const PORT = process.env.PORT || 8080;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-app.use(express.json());
 
-// 1. Instantly Serve Static Files
+// 2. IMMEDIATE MIDDLEWARE & LISTEN
+// We start listening BEFORE we do any heavy AI/Drive initialization
+app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
-// 2. Health Check (Immediate response for Cloud Run)
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Server is live on port ${PORT}`);
+});
+
+// 3. HEALTH CHECK (Instant response)
 app.get('/api/health', (req, res) => res.status(200).send('OK'));
 
-// Initialize State
+// 4. INITIALIZE STATE & SERVICES
 let systemPrompt = "You are a helpful AI assistant.";
 let lastPromptUpdate = null;
 let driveError = null;
 
-// Initialize Google AI Client
-const genAI = createClient({ 
-  apiKey: process.env.GEMINI_API_KEY 
-});
+// Wrap initialization in a try/catch to prevent startup crashes
+let genAI;
+try {
+  genAI = createClient({ apiKey: process.env.GEMINI_API_KEY });
+  console.log('✅ Gemini client initialized');
+} catch (e) {
+  console.error('❌ Failed to initialize Gemini API:', e.message);
+}
 
-// Initialize Google Drive Client (Lazy Auth)
 const auth = new google.auth.GoogleAuth({
   scopes: ['https://www.googleapis.com/auth/drive.readonly']
 });
 const drive = google.drive({ version: 'v3', auth });
 
 /**
- * Loads instructions from Drive without blocking startup.
+ * Loads instructions from Drive without blocking.
  */
 async function loadSystemPrompt() {
-  console.log('🔄 Checking GDrive for system_instruction.txt...');
+  console.log('🔄 Syncing with Google Drive...');
   try {
     const res = await drive.files.list({
       q: "name='system_instruction.txt' and trashed=false",
@@ -63,23 +72,21 @@ async function loadSystemPrompt() {
       systemPrompt = data.trim() || systemPrompt;
       lastPromptUpdate = new Date().toISOString();
       driveError = null;
-      console.log('✅ System prompt loaded successfully');
+      console.log('✅ System instructions synced');
     } else {
-      driveError = "File not found in Drive";
-      console.warn('⚠️ system_instruction.txt not found.');
+      driveError = "system_instruction.txt not found";
     }
   } catch (err) {
     driveError = err.message;
-    console.error('❌ Drive Load Error:', err.message);
+    console.error('❌ Drive Error:', err.message);
   }
 }
 
-// Start loading background data
+// Background Task
 loadSystemPrompt();
 setInterval(loadSystemPrompt, 5 * 60 * 1000);
 
-// --- API Endpoints ---
-
+// 5. API ROUTES
 app.get('/api/status', (req, res) => {
   res.json({
     online: true,
@@ -91,7 +98,8 @@ app.get('/api/status', (req, res) => {
 app.post('/api/chat', async (req, res) => {
   try {
     const { message } = req.body;
-    if (!message) return res.status(400).json({ error: 'Message required' });
+    if (!message) return res.status(400).json({ error: 'Empty message' });
+    if (!genAI) return res.status(500).json({ error: 'AI Client not ready' });
 
     const result = await genAI.models.generateContent({
       model: "gemini-2.0-flash",
@@ -101,19 +109,11 @@ app.post('/api/chat', async (req, res) => {
 
     res.json({ reply: result.response.text() });
   } catch (err) {
-    console.error('Chat Error:', err);
+    console.error('Chat API Error:', err);
     res.status(500).json({ error: { message: err.message } });
   }
 });
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
-});
-
-// START LISTENING IMMEDIATELY
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`----------------------------------------------`);
-  console.log(`🚀 DIGITAL TWIN IS ONLINE ON PORT ${PORT}`);
-  console.log(`----------------------------------------------`);
 });
