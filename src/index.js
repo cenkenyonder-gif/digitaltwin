@@ -1,8 +1,10 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createClient } from '@google/genai';
+import { google } from 'googleapis';
 
-// 1. FAST-PATH SETUP
+// 1. SETUP & PATHS
 const PORT = process.env.PORT || 8080;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,50 +17,35 @@ app.use(express.static(path.join(__dirname, '../public')));
 let systemPrompt = "You are a helpful AI assistant.";
 let lastPromptUpdate = null;
 let driveError = "Initializing...";
-let geminiReady = false;
-let genAI = null;
 let driveClient = null;
 
-// 3. INSTANT LISTEN (Satisfies Cloud Run Health Checks immediately)
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 INSTANT-BOOT: Server listening on port ${PORT}`);
-  // Start heavy initialization in the background
-  initializeCloudServices();
+// 3. INITIALIZE GEMINI CLIENT (Instant)
+const genAI = createClient({ 
+  apiKey: process.env.GEMINI_API_KEY 
 });
 
-// 4. HEALTH CHECK
-app.get('/api/health', (req, res) => res.status(200).send('OK'));
+// 4. INSTANT LISTEN
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ DIGITAL TWIN ONLINE: Listening on port ${PORT}`);
+  initializeDrive();
+});
 
-// 5. BACKGROUND INITIALIZATION (Dynamic Imports)
-async function initializeCloudServices() {
-  console.log('📦 Cold-start: Loading heavy libraries...');
+// 5. DRIVE SYNC LOGIC
+async function initializeDrive() {
   try {
-    // Dynamically load heavy SDKs to prevent startup timeouts
-    const { createClient } = await import('@google/genai');
-    const { google } = await import('googleapis');
-
-    console.log('✅ SDKs loaded. Configuring clients...');
-
-    // Init Gemini
-    if (process.env.GEMINI_API_KEY) {
-      genAI = createClient({ apiKey: process.env.GEMINI_API_KEY });
-      geminiReady = true;
-      console.log('✨ Gemini Client Ready');
-    }
-
-    // Init Drive
     const auth = new google.auth.GoogleAuth({
       scopes: ['https://www.googleapis.com/auth/drive.readonly']
     });
     driveClient = google.drive({ version: 'v3', auth });
     
     // Initial sync
-    syncWithDrive();
+    await syncWithDrive();
+    
+    // Refresh every 5 mins
     setInterval(syncWithDrive, 5 * 60 * 1000);
-
   } catch (err) {
-    console.error('💥 Background Init Failure:', err.message);
-    driveError = "Initialization failed: " + err.message;
+    console.error('💥 Drive Init Failure:', err.message);
+    driveError = err.message;
   }
 }
 
@@ -81,12 +68,15 @@ async function syncWithDrive() {
         const getRes = await driveClient.files.get({ fileId: file.id, alt: 'media' });
         data = typeof getRes.data === 'string' ? getRes.data : '';
       }
-      systemPrompt = data.trim() || systemPrompt;
-      lastPromptUpdate = new Date().toISOString();
-      driveError = null;
-      console.log('✅ Drive instructions refreshed');
+      
+      if (data.trim()) {
+        systemPrompt = data.trim();
+        lastPromptUpdate = new Date().toISOString();
+        driveError = null;
+        console.log('✅ Instructions synced from GDrive');
+      }
     } else {
-      driveError = "File not found in Drive";
+      driveError = "system_instruction.txt not found";
     }
   } catch (err) {
     driveError = err.message;
@@ -94,12 +84,14 @@ async function syncWithDrive() {
   }
 }
 
-// 6. API ROUTES
+// 6. API ENDPOINTS
+app.get('/api/health', (req, res) => res.status(200).send('OK'));
+
 app.get('/api/status', (req, res) => {
   res.json({
     online: true,
     drive: { connected: !driveError, lastUpdate: lastPromptUpdate, error: driveError },
-    gemini: { ready: geminiReady }
+    gemini: { ready: !!genAI }
   });
 });
 
@@ -107,8 +99,8 @@ app.post('/api/chat', async (req, res) => {
   try {
     const { message } = req.body;
     if (!message) return res.status(400).json({ error: 'Message required' });
-    if (!genAI) return res.status(503).json({ error: 'AI Service still booting...' });
 
+    // Using the stable 2.0-flash model
     const result = await genAI.models.generateContent({
       model: "gemini-2.0-flash",
       contents: [{ role: 'user', parts: [{ text: message }] }],
