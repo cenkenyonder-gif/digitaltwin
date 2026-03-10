@@ -50,7 +50,7 @@ app.post('/api/chat', async (req, res) => {
     }
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.0-flash',
       contents: userMsg,
       config: {
         systemInstruction: systemPrompt || "You are a helpful AI assistant."
