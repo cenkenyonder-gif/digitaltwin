@@ -119,7 +119,7 @@ app.get('/api/status', (req, res) => {
     online: true,
     drive: { connected: !driveError, lastUpdate: lastPromptUpdate, error: driveError },
     gemini: { 
-      model: "gemini-2.0-flash", // Using the 2.0 Flash (Stable reference)
+      model: "gemini-3.1-flash-lite", // UPDATED to Gemini 3.1 Flash Lite
       ready: !!genAI 
     }
   });
@@ -131,13 +131,13 @@ app.post('/api/chat', async (req, res) => {
     if (!message) return res.status(400).json({ error: 'Message required' });
     if (!genAI) return res.status(503).json({ error: 'AI not ready' });
 
-    console.log('💬 Chatting as Cenk Yönder...');
+    console.log('💬 Chatting as Cenk Yönder via Gemini 3.1 Flash Lite...');
 
     const fullPrompt = `${CENK_IDENTITY_FULL}\n\nEK BİLGİLER (Drive):\n${driveIdentity}`;
 
     // Stable SDK Pattern: getGenerativeModel
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.0-flash", // High-stability latest model name
+      model: "gemini-3.1-flash-lite", // UPDATED to Gemini 3.1 Flash Lite
       systemInstruction: fullPrompt
     });
 
