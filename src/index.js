@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { google } from 'googleapis';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // ---------------------------------------------------------
 // 🏗️ INITIAL CONFIG
@@ -16,7 +16,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
 // ---------------------------------------------------------
-// 🎭 CENK'S IDENTITY (HARDCODED MASTER)
+// 🎭 CENK'S IDENTITY (Baking it in to the server code)
 // ---------------------------------------------------------
 const CENK_IDENTITY_BASE = `Sen Cenk Yönder'sin. Bu senin dijital ikizin. 
 Aşağıdaki bilgiler senin gerçek kimliğindir, hayatındır ve karakterindir. 
@@ -42,11 +42,11 @@ let driveError = "Yükleniyor...";
 let genAI = null;
 
 // ---------------------------------------------------------
-// 🚀 INSTANT LISTEN
+// 🚀 INSTANT LISTEN (Satisfies Cloud Run health check first)
 // ---------------------------------------------------------
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`===============================================`);
-  console.log(`🚀 DIGITAL TWIN (GEMINI 2.5 FLASH) ONLINE`);
+  console.log(`🚀 DIGITAL TWIN (STABLE SDK) ONLINE ON PORT ${PORT}`);
   console.log(`===============================================`);
 });
 
@@ -57,14 +57,17 @@ async function init() {
   try {
     const apiKey = process.env.GEMINI_API_KEY;
     if (apiKey) {
-      // Correct constructor for @google/genai (unified SDK)
-      genAI = new GoogleGenAI({ apiKey });
-      console.log('✅ Gemini Client Initialized');
+      // Use the standard stable SDK
+      genAI = new GoogleGenerativeAI(apiKey);
+      console.log('✅ Gemini (Stable SDK) Initialized');
+    } else {
+      console.warn('⚠️ GEMINI_API_KEY is missing');
     }
   } catch (e) {
     console.error('❌ SDK Error:', e.message);
   }
 
+  // Initial Sync and 5-min interval
   syncWithDrive();
   setInterval(syncWithDrive, 5 * 60 * 1000);
 }
@@ -92,7 +95,7 @@ async function syncWithDrive() {
         data = exportRes.data;
       } else {
         const getRes = await drive.files.get({ fileId: file.id, alt: 'media' }, { responseType: 'text' });
-        data = getRes.data;
+        data = typeof getRes.data === 'string' ? getRes.data : '';
       }
       
       if (data && data.trim()) {
@@ -103,9 +106,11 @@ async function syncWithDrive() {
       }
     } else {
       driveError = "File 'system_instruction.txt' not found";
+      console.warn('⚠️ Drive file missing. Fallback identity used.');
     }
   } catch (err) {
     driveError = err.message;
+    console.error('❌ GDrive sync error:', err.message);
   }
 }
 
@@ -118,8 +123,16 @@ init().catch(console.error);
 app.get('/api/status', (req, res) => {
   res.json({
     online: true,
-    drive: { connected: !driveError, lastUpdate: lastPromptUpdate, error: driveError },
-    gemini: { model: "gemini-2.5-flash", ready: !!genAI }
+    drive: { 
+      connected: !driveError, 
+      lastUpdate: lastPromptUpdate, 
+      error: driveError,
+      promptSource: driveError ? "Hardcoded" : "Drive"
+    },
+    gemini: { 
+      model: "gemini-1.5-flash", 
+      ready: !!genAI 
+    }
   });
 });
 
@@ -127,28 +140,20 @@ app.post('/api/chat', async (req, res) => {
   try {
     const { message } = req.body;
     if (!message) return res.status(400).json({ error: 'Message required' });
-    if (!genAI) return res.status(503).json({ error: 'AI warming up' });
+    if (!genAI) return res.status(503).json({ error: 'AI client warming up' });
 
     // Combine baked-in identity with drive updates
     const fullPrompt = `${CENK_IDENTITY_BASE}\n\nEK BİLGİLER:\n${driveIdentity}`;
 
-    // Pattern for @google/genai (Unified SDK)
-    const result = await genAI.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [{ role: 'user', parts: [{ text: message }] }],
+    // Use the reliable getGenerativeModel + generateContent pattern
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
       systemInstruction: fullPrompt
     });
 
-    // In @google/genai, the response is at the root
-    let replyText = "";
-    if (result && typeof result.text === 'function') {
-      replyText = result.text();
-    } else if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
-      replyText = result.candidates[0].content.parts[0].text;
-    } else {
-      console.warn('Unexpected structure:', JSON.stringify(result));
-      replyText = "Şu an kafam biraz karışık, tekrar sorar mısın?";
-    }
+    const result = await model.generateContent(message);
+    const response = await result.response;
+    const replyText = response.text();
 
     res.json({ reply: replyText });
 
