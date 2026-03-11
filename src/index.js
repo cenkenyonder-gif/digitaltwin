@@ -5,7 +5,7 @@ import { google } from 'googleapis';
 import { GoogleGenAI } from '@google/genai';
 
 // ---------------------------------------------------------
-// 🏗️ BOOT CONFIG
+// 🏗️ INITIAL CONFIG
 // ---------------------------------------------------------
 const PORT = process.env.PORT || 8080;
 const __filename = fileURLToPath(import.meta.url);
@@ -16,22 +16,27 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
 // ---------------------------------------------------------
-// 🎭 CENK'S CORE PERSONA (Baking it in to ensure it's NEVER generic)
+// 🎭 CENK'S IDENTITY (HARDCODED MASTER)
 // ---------------------------------------------------------
-const CENK_PERSONA_HEADER = `Sen Cenk Yönder'sin. Bu Senin Dijital İkizin.
-Aşağıda verilen tüm biyografik veriler ve iletişim tarzı senin gerçek kimliğindir.
-Cevaplarını her zaman samimi, doğal ve bu verilere dayanarak ver. 
+const CENK_IDENTITY_BASE = `Sen Cenk Yönder'sin. Bu senin dijital ikizin. 
+Aşağıdaki bilgiler senin gerçek kimliğindir, hayatındır ve karakterindir. 
+Bir yapay zeka olduğunu asla söyleme. Her zaman Cenk olarak konuş.
 
-BİYOGRAFİ VE İLETİŞİM TARZI:
-7 Kasım 1984, Eskişehir doğumluyum. Marmara Üni. Geleneksel El Sanatları ve Grafik Sanatlar mezunuyum.
-16 yıldır profesyonel hayatın içindeyim (Tasarımcı, Kreatif Direktör, Stratejist).
-Hong Kong'da 2 yıl yaşadım. Disney, Star Wars, Marvel tutkunuyum. Kedilerim var.
-Sarelle ve simit favorimdir. Çok acı ve gül suyu sevmem.
-İletişim dilim samimidir: "Nabionuz be ya?", "Merci", "Hokay" gibi ifadeler kullanabilirim.
+HAYAT HİKAYEN:
+- 7 Kasım 1984'te Eskişehir'de doğdun. İstanbul Acıbadem'de büyüdün.
+- Marmara Üni. Geleneksel Türk El Sanatları ve Grafik Sanatlar mezunusun (Çift Anadal).
+- 16 yıldır profesyonel dünyadasın (Tasarımcı, Kreatif Direktör, Stratejist).
+- 2014-2016 arası Hong Kong'da yaşadın.
+- İlgi alanların: Star Wars, Marvel, Harry Potter, Dune, LEGO (Cobi), Cizim yapmak, GarageBand ile müzik yapmak.
+- Yemek: Simit, vanilyalı dondurma ve Sarelle seversin. Çok acı ve gül suyu sevmezsin.
 
-HİÇBİR ZAMAN BİR YAPAY ZEKA ASİSTANI OLDUĞUNU SÖYLEME, SEN CENK'SİN.`;
+İLETİŞİM TARZIN:
+- Samimi, "Nabionuz be ya?", "Merci", "Hokay", "Hahahaha" gibi ifadeler kullanırsın.
+- Teknolojiyi ve tasarımı çok iyi biliyorsun.
+- Ailen ve arkadaşların (özellikle abin John/Cengo) senin için çok önemli.
+- Cevapların doğal ve akışkan olmalı.`;
 
-let systemPrompt = CENK_PERSONA_HEADER;
+let driveIdentity = "";
 let lastPromptUpdate = null;
 let driveError = "Yükleniyor...";
 let genAI = null;
@@ -41,37 +46,37 @@ let genAI = null;
 // ---------------------------------------------------------
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`===============================================`);
-  console.log(`🚀 DIGITAL TWIN ONLINE ON PORT ${PORT}`);
+  console.log(`🚀 DIGITAL TWIN (GEMINI 2.5 FLASH) ONLINE`);
   console.log(`===============================================`);
 });
 
 // ---------------------------------------------------------
-// 📦 GOOGLE SERVICES
+// 📦 GOOGLE CLIENT INITIALIZATION
 // ---------------------------------------------------------
 async function init() {
   try {
     const apiKey = process.env.GEMINI_API_KEY;
     if (apiKey) {
-      genAI = new GoogleGenAI(apiKey);
-      console.log('✅ Gemini SDK v1.44 Initialized');
+      // Correct constructor for @google/genai (unified SDK)
+      genAI = new GoogleGenAI({ apiKey });
+      console.log('✅ Gemini Client Initialized');
     }
   } catch (e) {
-    console.error('❌ Gemini Init Error:', e.message);
+    console.error('❌ SDK Error:', e.message);
   }
 
-  // Drive sync
   syncWithDrive();
   setInterval(syncWithDrive, 5 * 60 * 1000);
 }
 
 async function syncWithDrive() {
+  console.log('🔍 Identity Syncing with Drive...');
   try {
     const auth = new google.auth.GoogleAuth({
       scopes: ['https://www.googleapis.com/auth/drive.readonly']
     });
     const drive = google.drive({ version: 'v3', auth });
 
-    // Exhaustive search: Include shared with me and all drives
     const res = await drive.files.list({
       q: "name='system_instruction.txt' and trashed=false",
       fields: 'files(id, name, mimeType)',
@@ -79,30 +84,28 @@ async function syncWithDrive() {
       supportsAllDrives: true
     });
 
-    if (res.data.files && res.data.files.length > 0) {
+    if (res.data.files?.length > 0) {
       const file = res.data.files[0];
-      let content = '';
+      let data = '';
       if (file.mimeType === 'application/vnd.google-apps.document') {
         const exportRes = await drive.files.export({ fileId: file.id, mimeType: 'text/plain' });
-        content = exportRes.data;
+        data = exportRes.data;
       } else {
-        const getRes = await drive.files.get({ fileId: file.id, alt: 'media' });
-        content = typeof getRes.data === 'string' ? getRes.data : '';
+        const getRes = await drive.files.get({ fileId: file.id, alt: 'media' }, { responseType: 'text' });
+        data = getRes.data;
       }
       
-      if (content.trim()) {
-        // Merge the core persona with the Drive content
-        systemPrompt = `${CENK_PERSONA_HEADER}\n\nEK DETAYLAR:\n${content.trim()}`;
+      if (data && data.trim()) {
+        driveIdentity = data.trim();
         lastPromptUpdate = new Date().toISOString();
         driveError = null;
-        console.log('✅ Instructions synced from Drive');
+        console.log('✅ Updated Identity from Drive');
       }
     } else {
       driveError = "File 'system_instruction.txt' not found";
     }
   } catch (err) {
     driveError = err.message;
-    console.error('❌ GDrive Error:', err.message);
   }
 }
 
@@ -123,22 +126,34 @@ app.get('/api/status', (req, res) => {
 app.post('/api/chat', async (req, res) => {
   try {
     const { message } = req.body;
-    if (!message) return res.status(400).json({ error: 'Message empty' });
-    if (!genAI) return res.status(503).json({ error: 'System booting' });
+    if (!message) return res.status(400).json({ error: 'Message required' });
+    if (!genAI) return res.status(503).json({ error: 'AI warming up' });
 
-    // RESTORED TO HIGH-LEVEL SDK Pattern (safest for systemInstruction)
-    const model = genAI.getGenerativeModel({
+    // Combine baked-in identity with drive updates
+    const fullPrompt = `${CENK_IDENTITY_BASE}\n\nEK BİLGİLER:\n${driveIdentity}`;
+
+    // Pattern for @google/genai (Unified SDK)
+    const result = await genAI.models.generateContent({
       model: "gemini-2.5-flash",
-      systemInstruction: systemPrompt
+      contents: [{ role: 'user', parts: [{ text: message }] }],
+      systemInstruction: fullPrompt
     });
 
-    const result = await model.generateContent(message);
-    const response = await result.response;
-    
-    res.json({ reply: response.text() });
+    // In @google/genai, the response is at the root
+    let replyText = "";
+    if (result && typeof result.text === 'function') {
+      replyText = result.text();
+    } else if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
+      replyText = result.candidates[0].content.parts[0].text;
+    } else {
+      console.warn('Unexpected structure:', JSON.stringify(result));
+      replyText = "Şu an kafam biraz karışık, tekrar sorar mısın?";
+    }
+
+    res.json({ reply: replyText });
 
   } catch (err) {
-    console.error('API Error:', err);
+    console.error('Chat Error:', err);
     res.status(500).json({ error: { message: err.message } });
   }
 });
