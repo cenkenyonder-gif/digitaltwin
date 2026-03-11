@@ -51,10 +51,7 @@ jobs:
             --timeout 300 \
             --port 8080 \
             --memory 1Gi \
-            --cpu 1 \
-            --startup-probe-failure-threshold=3 \
-            --startup-probe-period=10 \
-            --startup-probe-timeout=10
+            --cpu 1
 
       - name: Deploy Firebase Hosting
         run: |
