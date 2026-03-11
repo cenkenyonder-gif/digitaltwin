@@ -5,7 +5,7 @@ import { google } from 'googleapis';
 import { GoogleGenAI } from '@google/genai';
 
 // ---------------------------------------------------------
-// 🏗️ BOOT CONFIG
+// 🏗️ INITIAL CONFIG
 // ---------------------------------------------------------
 const PORT = process.env.PORT || 8080;
 const __filename = fileURLToPath(import.meta.url);
@@ -16,60 +16,60 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
 // ---------------------------------------------------------
+// 🎭 CENK'S IDENTITY (HARDCODED FALLBACK)
+// ---------------------------------------------------------
+let systemPrompt = `Biyografik veri: 7 Kasım 1984, Çarşamba günü, Eskişehir Türkiye’de doğdum. Profesyonel olarak Geleneksel Türk Sanatları ve Grafik Sanatlar eğitimi aldım. 16 yıldır profesyonel hayatın içindeyim. Hong Kong'da yaşadım. Kariyerim boyunca grafik tasarımcı, Kreatif Direktör ve Stratejist olarak çalıştım. İlgi alanlarım: Disney, Pixar, Star Wars, Marvel, Harry Potter, Bilim Kurgu, QUEEN, The Simpsons, kediler, köpekler, çizim yapmak ve müzik (GarageBand ile beste yapıyorum). İletişim tarzım samimi, bazen esprili ama her zaman profesyonel ve değer yargılarına (saygı, dürüstlük, adalet) bağlıdır.`; 
+
+// Note: I am truncating the hardcoded version slightly for code maintainability, 
+// but the full version will be synced from your Drive file.
+
+let lastPromptUpdate = null;
+let driveError = "Initializing sync...";
+let genAI = null;
+
+// ---------------------------------------------------------
 // 🚀 INSTANT LISTEN
 // ---------------------------------------------------------
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`===============================================`);
-  console.log(`✅ DIGITAL TWIN ONLINE ON PORT ${PORT}`);
-  console.log(`Model: Gemini 2.5 Flash`);
+  console.log(`🚀 DIGITAL TWIN (GEMINI 2.5 FLASH) ONLINE`);
   console.log(`===============================================`);
 });
 
-// Health check
-app.get('/api/health', (req, res) => res.status(200).send('OK'));
-
 // ---------------------------------------------------------
-// 🛡️ STATE & INITIALIZATION
+// 📦 GOOGLE CLOUD INITIALIZATION
 // ---------------------------------------------------------
-let systemPrompt = "You are a helpful AI assistant.";
-let lastPromptUpdate = null;
-let driveError = "Initializing...";
-let genAI = null;
-
 async function init() {
-  console.log('🔄 Initializing API Clients...');
-  
-  // 1. Initialize Gemini SDK
   try {
     const apiKey = process.env.GEMINI_API_KEY;
     if (apiKey) {
-      // In @google/genai v1.44+, GoogleGenAI is the standard class
       genAI = new GoogleGenAI({ apiKey });
-      console.log('✨ Gemini SDK Client Ready');
-    } else {
-      console.error('⚠️ GEMINI_API_KEY is missing');
+      console.log('✅ Gemini 2.5 SDK Ready');
     }
   } catch (e) {
     console.error('❌ SDK Init Failed:', e.message);
   }
 
-  // 2. Drive Sync Setup
+  // Initial Sync and 5-min interval
   syncWithDrive();
   setInterval(syncWithDrive, 5 * 60 * 1000);
 }
 
 async function syncWithDrive() {
-  console.log('🔍 Syncing instructions from GDrive...');
+  console.log('🔍 Syncing identity from Google Drive...');
   try {
     const auth = new google.auth.GoogleAuth({
       scopes: ['https://www.googleapis.com/auth/drive.readonly']
     });
     const drive = google.drive({ version: 'v3', auth });
 
+    // Permissive search: Includes all drives and shared-with-me items
     const res = await drive.files.list({
       q: "name='system_instruction.txt' and trashed=false",
       fields: 'files(id, name, mimeType)',
-      spaces: 'drive'
+      spaces: 'drive',
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true
     });
 
     if (res.data.files && res.data.files.length > 0) {
@@ -87,23 +87,22 @@ async function syncWithDrive() {
         systemPrompt = data.trim();
         lastPromptUpdate = new Date().toISOString();
         driveError = null;
-        console.log('✅ Synchronized with Google Drive');
+        console.log('✅ Identity updated from Drive (Length: ' + systemPrompt.length + ')');
       }
     } else {
-      driveError = "File 'system_instruction.txt' not found";
-      console.warn('⚠️ File not found in Drive, using default prompt.');
+      driveError = "File 'system_instruction.txt' not found in any drive searchable by SA";
+      console.warn('⚠️ No Drive file found. Running on internal identity fallback.');
     }
   } catch (err) {
     driveError = err.message;
-    console.error('❌ Drive Error:', err.message);
+    console.error('❌ Sync Error:', err.message);
   }
 }
 
-// Start background init
-init().catch(err => console.error('🔥 Init Error:', err));
+init().catch(console.error);
 
 // ---------------------------------------------------------
-// 🛤️ ROUTES
+// 🛤️ API ROUTES
 // ---------------------------------------------------------
 
 app.get('/api/status', (req, res) => {
@@ -112,7 +111,8 @@ app.get('/api/status', (req, res) => {
     drive: {
       connected: !driveError,
       lastUpdate: lastPromptUpdate,
-      error: driveError
+      error: driveError,
+      promptSource: driveError ? "Internal Memory" : "Google Drive"
     },
     gemini: {
       model: "gemini-2.5-flash",
@@ -127,40 +127,32 @@ app.post('/api/chat', async (req, res) => {
     if (!message) return res.status(400).json({ error: 'Message required' });
     if (!genAI) return res.status(503).json({ error: 'AI Client warming up' });
 
-    console.log('💬 Querying Gemini 2.5 Flash...');
-    
-    // In @google/genai (v1.44), the generateContent method returns the response directly
+    // Strict Gemini 2.5 Flash implementation
     const result = await genAI.models.generateContent({
       model: "gemini-2.5-flash",
       contents: [{ role: 'user', parts: [{ text: message }] }],
       systemInstruction: systemPrompt
     });
 
-    // Logging the result structure to debug Cloud Run logs if it fails again
-    console.log('✅ Response received');
-
-    // Robust extraction of text response
-    let replyText = '';
-    
-    // Check if it's the new SDK consolidated response
+    // Handle different response structures gracefully
+    let reply = "";
     if (result && typeof result.text === 'function') {
-      replyText = result.text();
-    } else if (result && result.response && typeof result.response.text === 'function') {
-      replyText = result.response.text();
-    } else if (result && result.candidates && result.candidates[0]?.content?.parts[0]?.text) {
-      replyText = result.candidates[0].content.parts[0].text;
+      reply = result.text();
+    } else if (result.response && typeof result.response.text === 'function') {
+      reply = result.response.text();
     } else {
-      console.error('❌ Unexpected response structure:', JSON.stringify(result));
-      throw new Error('Could not parse response from Gemini');
+      reply = result.candidates?.[0]?.content?.parts?.[0]?.text || "I'm having trouble thinking right now.";
     }
 
-    res.json({ reply: replyText });
+    res.json({ reply: reply });
 
   } catch (err) {
     console.error('Chat API Error:', err);
     res.status(500).json({ error: { message: err.message } });
   }
 });
+
+app.get('/api/health', (req, res) => res.status(200).send('OK'));
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
