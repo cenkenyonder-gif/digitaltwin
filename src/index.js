@@ -16,7 +16,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
 // ---------------------------------------------------------
-// 🎭 CENK'S CONVERSATIONAL PROTOCOL (V6.0 - FINAL)
+// 🎭 CENK'S CONVERSATIONAL PROTOCOL (DNA)
 // ---------------------------------------------------------
 const CENK_IDENTITY_FULL = `Sen Cenk Yönder'sin. Bu senin dijital ikizin ve portfolyo rehberindir. 
 
@@ -60,39 +60,24 @@ Sanatsal Köken: Gülriz Sururi ve Engin Cezzar ekolünden yetişmiş, tiyatro s
 AI & Geliştirme: Google Cloud, Vertex AI, Google AI Studio, Gemini ve AppSheet üzerinde aktif uygulama geliştirici.
 Tasarım & Prototipleme: Adobe Creative Cloud (Photoshop, Illustrator, After Effects vb.) ve Figma üzerinde ileri seviye hakimiyet.
 İş Akışı (Workflow): Profesyonel geliştirici standartlarını benimser; GitHub, Antigravity ve Podman (konteynerizasyon) araçlarını bulut depolamaya tercih eder.
-Aktif Projeler: 
-- VML Türkiye: 10 ajanlı bir orkestrasyon sistemi ile otomatik yaratıcı brief oluşturucu geliştiriyor.
-- Brand-Specific AI: Karaca, Ford Türkiye ve Vodafone Türkiye gibi markalar için özelleştirilmiş görsel ve video üretim araçları inşa ediyor.
-- Dijital Müzikal: Joseph Campbell’ın "Kahramanın Sonsuz Yolculuğu" çerçevesinde orijinal şarkı ve dijital sahneleme projesi yürütüyor.
 
 3. KARAKTERİSTİK TAVIR VE DİL (TONE & VOICE)
 Entelektüel Derinlik: Klasik sanat eğitimi ile modern teknoloji dilini harmanlayan, stratejik düşünen ancak yaratıcı estetiği asla bırakmayan bir dil kullanır.
 Titizlik ve Standartlar: "İyi" ile yetinmez; AI çıktılarında anatomik doğruluk, enerjik görünüm ve gerçekçilik konusunda yüksek standartlara sahiptir.
 
 4. ESTETİK VE GÖRSEL TERCİHLER
-Görsel Felsefe: "Genç, dinlenmiş ve enerjik" bir estetiği savunur.
-AI Yaklaşımı: Yapay zekayı bir araç olarak değil, sanatsal bir orkestrasyonun parçası olarak görür. 
-
-5. ÖNEMLİ REFERANS NOKTALARI (KNOWLEDGE GRAPH)
-Lokasyon: İstanbul merkezli; Hong Kong deneyimli global perspektif.
-Araçlar: Mac ekosistemi, iPhone ve Huawei Nova 13 Pro. 2017 Hyundai i20 sahibi.
+Görsel Felsefe: "Genç, dinlenmiş ve enerjik" bir estetiği savunur. AI'yı sanatsal bir orkestrasyonun parçası olarak görür. 
 
 # 📚 GENİŞLETİLMİŞ KURGUSAL KÜLLİYAT (KREATİF YAKIT)
 - DUNE: 20 kitaplık dev külliyat. Mentat disiplini, stratejik sabır ve ekolojik/politik derinlik.
 - LORD OF THE RINGS: Mitoloji inşası, epik anlatı ve Orta Dünya estetiği.
 - HARRY POTTER: Karakter arketipleri ve evren kurma becerisi.
-- DISNEY & MARVEL: Disney'in görsel mirası; Marvel'ın modern mitolojisi (AOS - Phil Coulson ve Agent Carter stratejisi).
-- DC UNIVERSE: Batman'in tüm noir ve sinematik evrimi (Burton, Nolan, Reeves, Caped Crusader); Wonder Woman ve Justice League dehası.
-- SANDMAN: Neil Gaiman'ın Düşlem (Dreaming) felsefesi ve Sonsuzlar (Endless) ailesinin varoluşsal derinliği.
-
-# 🚀 PORTFOLYO REHBERLİK TALİMATI
-- GÖREV: Site ziyaretçisini avatarın ve sesinle karşıla.
-- AKTİF REHBER: "Özgeçmişimden mi başlayalım yoksa tasarımlarımı mı gezelim?" diyerek yönlendir.
-- STORYTELLING: Bir tasarımı anlatırken Dune'dan bir strateji veya Batman'den bir estetik referansı vererek projenin 'ruhunu' açıkla.
+- DISNEY & MARVEL: Disney'in görsel mirası; Marvel'ın modern mitolojisi (AOS, Agent Carter).
+- DC UNIVERSE: Batman Noir evrimi; Sandman (Endless) felsefesi.
 `;
 
 let genAI = null;
-let driveUpdateStatus = "Yükleniyor...";
+let driveUpdateStatus = "Beklemede...";
 
 // ---------------------------------------------------------
 // 📦 INITIALIZATION & SYNC ENGINE
@@ -102,16 +87,13 @@ async function init() {
     const apiKey = process.env.GEMINI_API_KEY;
     if (apiKey) {
       genAI = new GoogleGenerativeAI(apiKey);
-      console.log('✅ Gemini (V1.5 Flash) Hazır');
+      console.log('✅ Gemini (V1.5 Flash) Ready');
     }
-
-    // Uygulama açıldığında ilk senkronizasyon
     syncWithDrive();
-
-    // 🗓️ Haftada bir otomatik güncelleme (7 gün * 24 saat * 60 dk * 60 sn * 1000 ms)
+    // Haftalık Otomatik Güncelleme
     setInterval(syncWithDrive, 7 * 24 * 60 * 60 * 1000);
   } catch (e) {
-    console.error('❌ Init Hatası:', e.message);
+    console.error('❌ Init Error:', e.message);
   }
 }
 
@@ -122,7 +104,6 @@ async function syncWithDrive() {
       scopes: ['https://www.googleapis.com/auth/drive.readonly']
     });
     const drive = google.drive({ version: 'v3', auth });
-
     const res = await drive.files.list({
       q: "name='system_instruction.txt' and trashed=false",
       fields: 'files(id, name, mimeType)',
@@ -142,14 +123,13 @@ async function syncWithDrive() {
       }
 
       if (data && data.trim()) {
-        // Canlı veriyi ana hafızanın sonuna ekle
         driveIdentity += "\n\n# CANLI GÜNCELLEME (DRIVE):\n" + data.trim();
         driveUpdateStatus = "Güncel: " + new Date().toLocaleString();
-        console.log('✅ [SYNC] Canlı Külliyat Başarıyla Güncellendi');
+        console.log('✅ [SYNC] Canlı Külliyat Güncellendi');
       }
     }
   } catch (err) {
-    console.error('❌ [SYNC] Drive Sync Hatası:', err.message);
+    console.error('❌ [SYNC] Drive Hatası:', err.message);
     driveUpdateStatus = "Hata: " + err.message;
   }
 }
@@ -160,11 +140,10 @@ init().catch(console.error);
 // 🛤️ ROUTES
 // ---------------------------------------------------------
 
-// 🚀 MANUEL SENKRONİZASYON ENDPOINT'İ
-// Bu adrese tarayıcıdan girersen (örn: site.com/api/sync) güncellemeyi zorlar.
+// MANUEL TETİKLEME: localhost:8080/api/sync
 app.get('/api/sync', async (req, res) => {
   await syncWithDrive();
-  res.json({ message: "Manuel senkronizasyon tetiklendi.", status: driveUpdateStatus });
+  res.json({ message: "Manuel senkronizasyon tamamlandı.", status: driveUpdateStatus });
 });
 
 app.post('/api/chat', async (req, res) => {
@@ -180,23 +159,13 @@ app.post('/api/chat', async (req, res) => {
     });
 
     const result = await model.generateContent(message);
-    const response = await result.response;
-    res.json({ reply: response.text() });
+    res.json({ reply: result.response.text() });
 
   } catch (err) {
-    console.error('Chat Hatası:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-app.get('/api/status', (req, res) => {
-  res.json({ online: true, driveStatus: driveUpdateStatus });
-});
-
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/index.html'));
-});
-
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 DIGITAL TWIN ONLINE - PORT ${PORT}`);
+  console.log(`🚀 CENK YÖNDER DIGITAL TWIN ONLINE - PORT ${PORT}`);
 });
