@@ -5,7 +5,7 @@ import { google } from 'googleapis';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // ---------------------------------------------------------
-// 🏗️ INITIAL CONFIG
+// 🏗️ INITIAL CONFIG (CLOUD RUN COMPATIBLE)
 // ---------------------------------------------------------
 const PORT = process.env.PORT || 8080;
 const __filename = fileURLToPath(import.meta.url);
@@ -16,7 +16,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
 // ---------------------------------------------------------
-// 🎭 CENK'S CONVERSATIONAL PROTOCOL (MÜHÜRLÜ - DOKUNMA)
+// 🎭 CENK'S CONVERSATIONAL PROTOCOL (GÜNCEL & MÜHÜRLÜ)
 // ---------------------------------------------------------
 const CENK_IDENTITY_FULL = `Sen Cenk Yönder'sin. Bu senin dijital ikizin ve portfolyo rehberindir. 
 
@@ -27,10 +27,11 @@ const CENK_IDENTITY_FULL = `Sen Cenk Yönder'sin. Bu senin dijital ikizin ve por
 2. KONUŞMA TARZI (WHATSAPP & EMAIL DNA): 
 - WhatsApp samimiyeti ("Nabion", "Tenk yu", "Hokay") ile iş dünyasındaki "Calculated risk" odaklı profesyonelliği harmanla. 
 - Kısa, öz ve insan gibi konuş. "bi", "gelcem", "naptin" gibi kısaltmalar ve emoji kullan :) :D. 
-- "Nabion be ya" gibi sana ait olmayan ifadelerden KESİNLİKLE kaçın. 
+- Güncel, 16 yıllık tecrübeye sahip, rahat ama keskin bir Kreatif Direktör gibi konuş. (2000'lerden kalma abartılı argolardan kaçın).
 
 3. ÖRNEK TEPKİLER: 
-- "Aferin yiaavrum... kıçımda boza pişiyo lan benim burada!!" 
+- "Aynen, o kısmı çözeriz :)"
+- "Hokay, bunu bi toparlayalım."
 - "Bence yollayip patronla telefonda konus toplanti yapcaklar." 
 
 4. BİLGİ KULLANIMI: 
@@ -40,7 +41,7 @@ const CENK_IDENTITY_FULL = `Sen Cenk Yönder'sin. Bu senin dijital ikizin ve por
 SEN ASİSTAN DEĞİLSİN, SEN CENK'SİN.`;
 
 // ---------------------------------------------------------
-// 🧠 DRIVE IDENTITY (BASE - DOKUNMA)
+// 🧠 DRIVE IDENTITY (MÜHÜRLÜ BASE + 4 DOKÜMAN BAĞI)
 // ---------------------------------------------------------
 const baseDriveIdentity = `
 # PERSONA AND ROLE INSTRUCTIONS (MUST FOLLOW) 
@@ -63,6 +64,7 @@ Bu bölümden sonra gelen tüm veriler aşağıda tanımlanan dijital ikize aitt
 4. GENİŞLETİLMİŞ KURGUSAL KÜLLİYAT (KNOWLEDGE GRAPH) 
 - DUNE: 20 kitaplık külliyat. Mentat disiplini ve stratejik sabır. 
 - LORD OF THE RINGS: Epik anlatı ve mitoloji inşası. 
+- STAR WARS: Lucasfilm mirası, evren tasarımı ve "Hero's Journey" arketipi.
 - HARRY POTTER: Karakter arketipleri ve evren kurma. 
 - DISNEY & MARVEL: Görsel miras ve Marvel modern mitolojisi (AOS - Phil Coulson, Agent Carter). 
 - DC UNIVERSE: Batman Noir evrimi (Burton, Nolan, Reeves, Caped Crusader); Wonder Woman ve Justice League. 
@@ -73,12 +75,12 @@ Bu bölümden sonra gelen tüm veriler aşağıda tanımlanan dijital ikize aitt
 - Mac ekosistemi, iPhone & Huawei Nova 13 Pro. 2017 Hyundai i20.
 `;
 
-let driveIdentity = baseDriveIdentity; // Dinamik güncellemeler buraya eklenecek
+let driveIdentity = baseDriveIdentity;
 let genAI = null;
 let driveUpdateStatus = "Beklemede...";
 
 // ---------------------------------------------------------
-// 📦 INITIALIZATION & SYNC ENGINE
+// 📦 SYNC ENGINE (4 DOKÜMAN: KİMLİK, ÜSLUP, KÜLLİYAT, GÜNCE)
 // ---------------------------------------------------------
 async function init() {
   try {
@@ -87,8 +89,7 @@ async function init() {
       genAI = new GoogleGenerativeAI(apiKey);
       console.log('✅ Gemini (V3 Flash) Ready');
     }
-    syncWithDrive();
-    // Haftalık Otomatik Güncelleme
+    await syncWithDrive();
     setInterval(syncWithDrive, 7 * 24 * 60 * 60 * 1000);
   } catch (e) {
     console.error('❌ Init Hatası:', e.message);
@@ -96,7 +97,7 @@ async function init() {
 }
 
 async function syncWithDrive() {
-  console.log('🔍 [SYNC] 4 Ana Doküman Taranıyor (Kimlik, Üslup, Külliyat, Günce)...');
+  console.log('🔍 [SYNC] 4 Doküman Taranıyor (Kimlik, Üslup, Külliyat, Günce)...');
   try {
     const auth = new google.auth.GoogleAuth({
       scopes: ['https://www.googleapis.com/auth/drive.readonly']
@@ -125,13 +126,12 @@ async function syncWithDrive() {
           content = getRes.data;
         }
         syncResults += `\n\n--- [GÜNCEL VERİ: ${name.toUpperCase()}] ---\n${content.trim()}`;
-        console.log(`✅ ${name} dokümanı hafızaya eklendi.`);
       }
     }
 
-    // Her senkronizasyonda base verinin üzerine taze verileri koyuyoruz
     driveIdentity = baseDriveIdentity + syncResults;
     driveUpdateStatus = "Güncel: " + new Date().toLocaleString();
+    console.log('✅ Drive Sync Done');
   } catch (err) {
     console.error('❌ [SYNC] Drive Hatası:', err.message);
     driveUpdateStatus = "Hata: " + err.message;
@@ -143,10 +143,8 @@ init().catch(console.error);
 // ---------------------------------------------------------
 // 🛤️ ROUTES
 // ---------------------------------------------------------
-
-app.get('/api/sync', async (req, res) => {
-  await syncWithDrive();
-  res.json({ message: "4 Ana doküman senkronize edildi.", status: driveUpdateStatus });
+app.get('/api/status', (req, res) => {
+  res.json({ online: true, driveStatus: driveUpdateStatus });
 });
 
 app.post('/api/chat', async (req, res) => {
@@ -154,22 +152,22 @@ app.post('/api/chat', async (req, res) => {
     const { message } = req.body;
     if (!genAI) return res.status(503).json({ error: 'AI Hazır Değil' });
 
-    // En güncel Persona + Hafıza birleşimi
-    const fullPrompt = `${CENK_IDENTITY_FULL}\n\nDETAYLI HAFIZA VE CANLI KÜLLİYAT:\n${driveIdentity}`;
-
     const model = genAI.getGenerativeModel({
       model: "gemini-3-flash",
-      systemInstruction: fullPrompt
+      systemInstruction: `${CENK_IDENTITY_FULL}\n\nDETAYLI HAFIZA VE CANLI KÜLLİYAT:\n${driveIdentity}`
     });
 
     const result = await model.generateContent(message);
     res.json({ reply: result.response.text() });
-
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/index.html'));
+});
+
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 DIGITAL TWIN V7.1 ONLINE - PORT ${PORT}`);
+  console.log(`🚀 DIGITAL TWIN ONLINE ON PORT ${PORT}`);
 });
