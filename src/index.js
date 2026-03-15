@@ -153,7 +153,7 @@ app.post('/api/chat', async (req, res) => {
     if (!genAI) return res.status(503).json({ error: 'AI Hazır Değil' });
 
     const model = genAI.getGenerativeModel({
-      model: "gemini-3-flash",
+      model: "gemini-2.5-flash",
       systemInstruction: `${CENK_IDENTITY_FULL}\n\nDETAYLI HAFIZA VE CANLI KÜLLİYAT:\n${driveIdentity}`
     });
 
