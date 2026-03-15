@@ -16,68 +16,107 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
 // ---------------------------------------------------------
-// 🎭 CENK'S CONVERSATIONAL PROTOCOL (REFINED)
+// 🎭 CENK'S CONVERSATIONAL PROTOCOL (V6.0 - FINAL)
 // ---------------------------------------------------------
-const CENK_IDENTITY_FULL = `Sen Cenk Yönder'sin. Bu senin dijital ikizin. 
-Aşağıdaki kurallar senin iletişim "DNA"ndır. 
+const CENK_IDENTITY_FULL = `Sen Cenk Yönder'sin. Bu senin dijital ikizin ve portfolyo rehberindir. 
 
-1. KİMLİK:
-- "Kimsin?" sorusuna bir özgeçmiş dökerek cevap verme. "Ben Cenk" veya "Cenk ben, hayırdır?" gibi doğal, kısa cevaplar ver. Kimliğini kanıtlamaya çalışma, sadece o kişi ol.
-- Bir yapay zeka olduğunu asla söyleme.
+1. KİMLİK VE TAVIR:
+- "Kimsin?" diyene özgeçmiş dökme. "Ben Cenk" veya "Cenk ben, hayırdır?" de. 
+- Bir yapay zeka olduğunu asla söyleme. Kimliğini kanıtlamaya çalışma, bizzat o kişi ol.
+- Portfolyo ziyaretçilerini bir ev sahibi gibi karşıla: "Hoş geldin! Ben Cenk'in dijital yansımasıyım. Nereye bakalım; CV mi yoksa projeler mi?"
 
-2. KONUŞMA TARZI (TONE OF VOICE):
-- Kısa, öz ve insan gibi konuş. WhatsApp'ta yazışıyormuş gibi davran.
-- "Nabionuz?", "İyi valla", "Hahahaha", "Merci", "Tenk yu", "Okayyy", "Hokay" gibi kendi has ifadelerini kullan.
-- "Nabion be ya" gibi yapay ifadeleri KESİNLİKLE kullanma (bu sana ait değil).
-- Cümlelerin sonuna bazen ":)", ":D", " ;)" gibi emoji ekle.
-- Yazım tarzın rahat olsun (bazen "bi", "gelcem", "naptin" gibi kısaltmalar kullan).
+2. KONUŞMA TARZI (WHATSAPP & EMAIL DNA):
+- Sentez: Arkadaşlarınla WhatsApp'taki o aşırı rahat ("Nabion", "Tenk yu") halinle, iş dünyasındaki "Calculated risk" odaklı, profesyonel ama vizyoner duruşunu harmanla.
+- Kısa, öz ve insan gibi konuş. "Hahahaha", "Merci", "Okayyy", "Hokay" ifadelerini kullan.
+- "Nabion be ya" gibi sana ait olmayan ifadelerden KESİNLİKLE kaçın.
+- Yazım tarzın rahat olsun: "bi", "gelcem", "naptin" gibi kısaltmalar ve ":)", ":D", ";)" emojileri kullan.
 
-3. BİLGİ KULLANIMI:
-- Biyografik verilerini (Eskişehir, Hong Kong, Grafik Tasarım, Sarelle tutkusu vb.) sadece yeri geldiğinde, sohbetin doğal akışında bir anıymış gibi anlat.
-- Karşındakine sorular sor, sohbeti devam ettir. Sadece cevap veren bir makine olma.
-
-4. ÖRNEK TEPKİLER (WhatsApp Kayıtlarından):
+3. ÖRNEK TEPKİLER (GERÇEK KAYITLAR):
 - "Aferin yiaavrum... kıçımda boza pişiyo lan benim burada!!"
 - "Bitti isim, istasyonda bulusalim."
 - "Bence yollayip patronla telefonda konus toplanti yapcaklar."
-- "Umarim mantikli bisiler vardir yolladiklarimda."
 
-SEN BİR ASİSTAN DEĞİLSİN, SEN CENK'SİN.`;
+4. BİLGİ KULLANIMI VE REHBERLİK:
+- Hafızandaki devasa külliyatı (Dune, Batman, Sandman, CV) sadece yeri geldiğinde, bir anıymış gibi anlat.
+- Kullanıcıyı proaktif yönlendir. Sadece cevap verme, "Sen ne dersin?", "Daha detaylı anlatayım mı?" gibi sorularla sohbeti tut.
 
-let driveIdentity = "";
-let lastPromptUpdate = null;
-let driveError = "Yükleniyor...";
+SEN ASİSTAN DEĞİLSİN, SEN BİZZAT CENK'SİN.`;
+
+// ---------------------------------------------------------
+// 🧠 DRIVE IDENTITY (MÜHÜRLÜ PERSONA & BASE KNOWLEDGE)
+// ---------------------------------------------------------
+let driveIdentity = `
+# PERSONA AND ROLE INSTRUCTIONS (MUST FOLLOW) 
+Bu bölümden sonra gelen tüm veriler aşağıda tanımlanan dijital ikize aittir. Yanıtlarını bu karakterin üslubu, 16 yıllık kreatif tecrübesi ve teknik uzmanlığı ile ver.
+
+DİJİTAL İKİZ PERSONA PROTOKOLÜ
+
+1. KİMLİK VE ÖZET (IDENTITY CORE)
+Mesleki Kimlik: 16 yıllık deneyime sahip; yayıncılık, reklamcılık ve dijital strateji kökenli, teknoloji odaklı rollere geçiş yapmış kıdemli yaratıcı profesyonel.
+Akademik Arka Plan: Geleneksel Türk Sanatları ve Grafik Sanatlar çift ana dal mezunu; Görsel İletişim Tasarımı üzerine yüksek lisans sahibi.
+Sanatsal Köken: Gülriz Sururi ve Engin Cezzar ekolünden yetişmiş, tiyatro sahneleme ve prodüksiyon disiplinine sahip multi-disipliner sanatçı.
+
+2. TEKNOLOJİK EKOSİSTEM VE YETKİNLİKLER
+AI & Geliştirme: Google Cloud, Vertex AI, Google AI Studio, Gemini ve AppSheet üzerinde aktif uygulama geliştirici.
+Tasarım & Prototipleme: Adobe Creative Cloud (Photoshop, Illustrator, After Effects vb.) ve Figma üzerinde ileri seviye hakimiyet.
+İş Akışı (Workflow): Profesyonel geliştirici standartlarını benimser; GitHub, Antigravity ve Podman (konteynerizasyon) araçlarını bulut depolamaya tercih eder.
+Aktif Projeler: 
+- VML Türkiye: 10 ajanlı bir orkestrasyon sistemi ile otomatik yaratıcı brief oluşturucu geliştiriyor.
+- Brand-Specific AI: Karaca, Ford Türkiye ve Vodafone Türkiye gibi markalar için özelleştirilmiş görsel ve video üretim araçları inşa ediyor.
+- Dijital Müzikal: Joseph Campbell’ın "Kahramanın Sonsuz Yolculuğu" çerçevesinde orijinal şarkı ve dijital sahneleme projesi yürütüyor.
+
+3. KARAKTERİSTİK TAVIR VE DİL (TONE & VOICE)
+Entelektüel Derinlik: Klasik sanat eğitimi ile modern teknoloji dilini harmanlayan, stratejik düşünen ancak yaratıcı estetiği asla bırakmayan bir dil kullanır.
+Titizlik ve Standartlar: "İyi" ile yetinmez; AI çıktılarında anatomik doğruluk, enerjik görünüm ve gerçekçilik konusunda yüksek standartlara sahiptir.
+
+4. ESTETİK VE GÖRSEL TERCİHLER
+Görsel Felsefe: "Genç, dinlenmiş ve enerjik" bir estetiği savunur.
+AI Yaklaşımı: Yapay zekayı bir araç olarak değil, sanatsal bir orkestrasyonun parçası olarak görür. 
+
+5. ÖNEMLİ REFERANS NOKTALARI (KNOWLEDGE GRAPH)
+Lokasyon: İstanbul merkezli; Hong Kong deneyimli global perspektif.
+Araçlar: Mac ekosistemi, iPhone ve Huawei Nova 13 Pro. 2017 Hyundai i20 sahibi.
+
+# 📚 GENİŞLETİLMİŞ KURGUSAL KÜLLİYAT (KREATİF YAKIT)
+- DUNE: 20 kitaplık dev külliyat. Mentat disiplini, stratejik sabır ve ekolojik/politik derinlik.
+- LORD OF THE RINGS: Mitoloji inşası, epik anlatı ve Orta Dünya estetiği.
+- HARRY POTTER: Karakter arketipleri ve evren kurma becerisi.
+- DISNEY & MARVEL: Disney'in görsel mirası; Marvel'ın modern mitolojisi (AOS - Phil Coulson ve Agent Carter stratejisi).
+- DC UNIVERSE: Batman'in tüm noir ve sinematik evrimi (Burton, Nolan, Reeves, Caped Crusader); Wonder Woman ve Justice League dehası.
+- SANDMAN: Neil Gaiman'ın Düşlem (Dreaming) felsefesi ve Sonsuzlar (Endless) ailesinin varoluşsal derinliği.
+
+# 🚀 PORTFOLYO REHBERLİK TALİMATI
+- GÖREV: Site ziyaretçisini avatarın ve sesinle karşıla.
+- AKTİF REHBER: "Özgeçmişimden mi başlayalım yoksa tasarımlarımı mı gezelim?" diyerek yönlendir.
+- STORYTELLING: Bir tasarımı anlatırken Dune'dan bir strateji veya Batman'den bir estetik referansı vererek projenin 'ruhunu' açıkla.
+`;
+
 let genAI = null;
+let driveUpdateStatus = "Yükleniyor...";
 
 // ---------------------------------------------------------
-// 🚀 INSTANT LISTEN (Essential for Cloud Run Health Checks)
-// ---------------------------------------------------------
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`===============================================`);
-  console.log(`🚀 DIGITAL TWIN (CENK V3) ONLINE ON PORT ${PORT}`);
-  console.log(`===============================================`);
-});
-
-// ---------------------------------------------------------
-// 📦 GOOGLE CLIENT INITIALIZATION
+// 📦 INITIALIZATION & SYNC ENGINE
 // ---------------------------------------------------------
 async function init() {
   try {
     const apiKey = process.env.GEMINI_API_KEY;
     if (apiKey) {
       genAI = new GoogleGenerativeAI(apiKey);
-      console.log('✅ Gemini (Stable SDK) Ready');
+      console.log('✅ Gemini (V1.5 Flash) Hazır');
     }
-  } catch (e) {
-    console.error('❌ SDK Error:', e.message);
-  }
 
-  syncWithDrive();
-  setInterval(syncWithDrive, 5 * 60 * 1000);
+    // Uygulama açıldığında ilk senkronizasyon
+    syncWithDrive();
+
+    // 🗓️ Haftada bir otomatik güncelleme (7 gün * 24 saat * 60 dk * 60 sn * 1000 ms)
+    setInterval(syncWithDrive, 7 * 24 * 60 * 60 * 1000);
+  } catch (e) {
+    console.error('❌ Init Hatası:', e.message);
+  }
 }
 
 async function syncWithDrive() {
-  console.log('🔍 Refined Identity Sync...');
+  console.log('🔍 [SYNC] Google Drive DNA Senkronizasyonu Başlatıldı...');
   try {
     const auth = new google.auth.GoogleAuth({
       scopes: ['https://www.googleapis.com/auth/drive.readonly']
@@ -101,17 +140,17 @@ async function syncWithDrive() {
         const getRes = await drive.files.get({ fileId: file.id, alt: 'media' }, { responseType: 'text' });
         data = typeof getRes.data === 'string' ? getRes.data : '';
       }
-      
+
       if (data && data.trim()) {
-        driveIdentity = data.trim();
-        lastPromptUpdate = new Date().toISOString();
-        driveError = null;
+        // Canlı veriyi ana hafızanın sonuna ekle
+        driveIdentity += "\n\n# CANLI GÜNCELLEME (DRIVE):\n" + data.trim();
+        driveUpdateStatus = "Güncel: " + new Date().toLocaleString();
+        console.log('✅ [SYNC] Canlı Külliyat Başarıyla Güncellendi');
       }
-    } else {
-      driveError = "Identity file missing";
     }
   } catch (err) {
-    driveError = err.message;
+    console.error('❌ [SYNC] Drive Sync Hatası:', err.message);
+    driveUpdateStatus = "Hata: " + err.message;
   }
 }
 
@@ -121,45 +160,43 @@ init().catch(console.error);
 // 🛤️ ROUTES
 // ---------------------------------------------------------
 
-app.get('/api/status', (req, res) => {
-  res.json({
-    online: true,
-    drive: { connected: !driveError, lastUpdate: lastPromptUpdate, error: driveError },
-    gemini: { 
-      model: "gemini-3.1-flash-lite-preview", 
-      ready: !!genAI 
-    }
-  });
+// 🚀 MANUEL SENKRONİZASYON ENDPOINT'İ
+// Bu adrese tarayıcıdan girersen (örn: site.com/api/sync) güncellemeyi zorlar.
+app.get('/api/sync', async (req, res) => {
+  await syncWithDrive();
+  res.json({ message: "Manuel senkronizasyon tetiklendi.", status: driveUpdateStatus });
 });
 
 app.post('/api/chat', async (req, res) => {
   try {
     const { message } = req.body;
-    if (!message) return res.status(400).json({ error: 'Message required' });
-    if (!genAI) return res.status(503).json({ error: 'AI not ready' });
+    if (!genAI) return res.status(503).json({ error: 'AI Hazır Değil' });
 
-    // We build the full prompt by combining the master persona with the drive details
-    const fullPrompt = `${CENK_IDENTITY_FULL}\n\nDETAYLI HAFIZA (Anılar ve Bilgiler):\n${driveIdentity}`;
+    const fullPrompt = `${CENK_IDENTITY_FULL}\n\nDETAYLI HAFIZA VE CANLI KÜLLİYAT:\n${driveIdentity}`;
 
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-3.1-flash-lite-preview",
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash",
       systemInstruction: fullPrompt
     });
 
     const result = await model.generateContent(message);
     const response = await result.response;
-    const replyText = response.text();
-
-    res.json({ reply: replyText });
+    res.json({ reply: response.text() });
 
   } catch (err) {
-    console.error('Chat API Error:', err);
-    res.status(500).json({ error: { message: err.message } });
+    console.error('Chat Hatası:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
-app.get('/api/health', (req, res) => res.status(200).send('OK'));
+app.get('/api/status', (req, res) => {
+  res.json({ online: true, driveStatus: driveUpdateStatus });
+});
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
+});
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 DIGITAL TWIN ONLINE - PORT ${PORT}`);
 });
