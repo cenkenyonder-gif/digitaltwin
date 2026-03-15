@@ -1,39 +1,136 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Digital Twin | Cloud Edition</title>
   <style>
-    body { font-family: -apple-system, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; line-height: 1.6; background: #f4f7f9; }
-    .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-    h1 { color: #1a73e8; margin-top: 0; }
-    .status { font-size: 0.8em; color: #666; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
-    .indicator { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #ccc; }
-    .ready { background: #34a853; box-shadow: 0 0 5px rgba(52, 168, 83, 0.5); }
-    .error { background: #ea4335; }
-    input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; margin-bottom: 15px; transition: border 0.3s; }
-    input:focus { border-color: #1a73e8; outline: none; }
-    button { background: #1a73e8; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; font-size: 16px; }
-    button:hover { background: #1557b0; }
-    button:disabled { background: #ccc; cursor: not-allowed; }
-    pre { background: #f8f9fa; padding: 15px; border-radius: 8px; white-space: pre-wrap; word-wrap: break-word; min-height: 50px; border-left: 4px solid #1a73e8; margin-top: 20px; color: #333; }
-    h3 { margin-bottom: 0px; color: #555; font-size: 0.9em; }
-    .refresh-link { margin-left: auto; font-size: 0.8em; color: #1a73e8; cursor: pointer; text-decoration: underline; font-weight: bold; }
+    body {
+      font-family: -apple-system, sans-serif;
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 20px;
+      line-height: 1.6;
+      background: #f4f7f9;
+    }
+
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    }
+
+    h1 {
+      color: #1a73e8;
+      margin-top: 0;
+    }
+
+    .status {
+      font-size: 0.8em;
+      color: #666;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .indicator {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #ccc;
+    }
+
+    .ready {
+      background: #34a853;
+      box-shadow: 0 0 5px rgba(52, 168, 83, 0.5);
+    }
+
+    .error {
+      background: #ea4335;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      box-sizing: border-box;
+      font-size: 16px;
+      margin-bottom: 15px;
+      transition: border 0.3s;
+    }
+
+    input:focus {
+      border-color: #1a73e8;
+      outline: none;
+    }
+
+    button {
+      background: #1a73e8;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      width: 100%;
+      font-size: 16px;
+    }
+
+    button:hover {
+      background: #1557b0;
+    }
+
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    pre {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      min-height: 50px;
+      border-left: 4px solid #1a73e8;
+      margin-top: 20px;
+      color: #333;
+    }
+
+    h3 {
+      margin-bottom: 0px;
+      color: #555;
+      font-size: 0.9em;
+    }
+
+    .refresh-link {
+      margin-left: auto;
+      font-size: 0.8em;
+      color: #1a73e8;
+      cursor: pointer;
+      text-decoration: underline;
+      font-weight: bold;
+    }
   </style>
 </head>
+
 <body>
   <div class="card">
     <h1>Digital Twin</h1>
     <div class="status">
-      <span id="drive-dot" class="indicator"></span> 
+      <span id="drive-dot" class="indicator"></span>
       <span id="drive-status">Connecting...</span>
       <span class="refresh-link" onclick="checkStatus()">Refresh Status</span>
     </div>
 
     <input id="msg" placeholder="Talk to your Twin..." onkeypress="if(event.key==='Enter') send()" autocomplete="off" />
     <button id="send-btn" onclick="send()">Send Message</button>
-    
+
     <h3>Twin's Response:</h3>
     <pre id="out">Establishing link to GDrive instructions...</pre>
   </div>
@@ -42,25 +139,22 @@
     async function checkStatus() {
       const statusText = document.getElementById('drive-status');
       const statusDot = document.getElementById('drive-dot');
-      
+
       try {
         const res = await fetch('/api/status');
         if (!res.ok) throw new Error('API Error');
         const data = await res.json();
-        
-        // Match the backend object structure
-        const drive = data.drive || {};
-        
-        if (drive.connected) {
+
+        // Backend V7.8 ile uyumlu kontrol (data.online ve data.driveStatus arıyoruz)
+        if (data.online) {
           statusDot.className = 'indicator ready';
-          statusText.textContent = 'Drive: Connected';
+          statusText.textContent = data.driveStatus || 'Drive: Connected';
           if (document.getElementById('out').textContent.includes('Establishing')) {
-            document.getElementById('out').textContent = 'Ready to chat.';
+            document.getElementById('out').textContent = 'Ready to chat. Ben Cenk, hayırdır?';
           }
         } else {
           statusDot.className = 'indicator error';
-          statusText.textContent = 'Drive Error: ' + (drive.error || 'Unknown');
-          console.error('Core Drive Error:', drive.error);
+          statusText.textContent = 'Status: Backend is down';
         }
       } catch (e) {
         statusDot.className = 'indicator error';
@@ -73,10 +167,10 @@
       const btn = document.getElementById('send-btn');
       const input = document.getElementById('msg');
       const message = input.value.trim();
-      
+
       if (!message) return;
 
-      out.textContent = 'Analyzing thinking...';
+      out.textContent = 'Analiz ediliyor...';
       btn.disabled = true;
 
       try {
@@ -92,20 +186,19 @@
           input.value = '';
         } else {
           const errMsg = data.error?.message || JSON.stringify(data.error);
-          out.textContent = 'Connection Issue: ' + errMsg;
+          out.textContent = 'Bağlantı Sorunu: ' + errMsg;
         }
       } catch (err) {
-        out.textContent = 'Local Network Error: ' + err.message;
+        out.textContent = 'Ağ Hatası: ' + err.message;
       } finally {
         btn.disabled = false;
         input.focus();
       }
     }
 
-    // Initial heart-beat check
     checkStatus();
-    // Auto-update status every 30 seconds
     setInterval(checkStatus, 30000);
   </script>
 </body>
+
 </html>
